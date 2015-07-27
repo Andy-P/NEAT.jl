@@ -10,8 +10,7 @@ end
 
 include("genome.jl")
 
-# export Input, Output,Hidden
-
+# export Input, Output, Hidden
 
 
 # TO DOs:
