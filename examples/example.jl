@@ -1,5 +1,4 @@
 using NEAT
-# using DataStructures
 reload("NEAT.jl")
 # output requests values to sum from X1, X2,...
 

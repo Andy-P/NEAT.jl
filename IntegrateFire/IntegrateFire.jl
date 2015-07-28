@@ -1,6 +1,6 @@
 using Dates, Gadfly
 
-# set_default_plot_size(20cm, 10cm)
+# set_default_plot_size(15cm, 15cm)
 # simple Integrate and Fire Synapse Mode
 type Synapse
     Ω::Real # membrane resistance [MΩ]
@@ -33,12 +33,12 @@ n = 1000
 s = Synapse(Ω=10,τ=10)
 data = zeros(n)
 # V = copy(data)
-V = max(randn(n) * 2 + 0.5,0)
+V = max(randn(n) * 1.5 + 0.5,0)
 tm = ones(n)
 t = 0
-# V[:] = 1.51
+V[:] = 1.502
 for i = 1:n
-    Δτ = rand(1:3)
+    Δτ = rand(1:1)
     v = update!(s, V[i], nextDt(s.dt, Δτ))
     data[i] = v
     tm[i] = i == 1? Δτ:tm[i-1] +  Δτ

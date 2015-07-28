@@ -8,7 +8,9 @@ type NeatParams
     end
 end
 
+include("population.jl")
 include("genome.jl")
+include("species.jl")
 
 # export Input, Output, Hidden
 
