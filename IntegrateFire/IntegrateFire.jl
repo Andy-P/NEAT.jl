@@ -1,4 +1,4 @@
-using Dates
+using Dates, Gadfly
 
 # set_default_plot_size(20cm, 10cm)
 # simple Integrate and Fire Synapse Mode
@@ -38,10 +38,10 @@ tm = ones(n)
 t = 0
 # V[:] = 1.51
 for i = 1:n
-    Δτ = rand(1:2)
+    Δτ = rand(1:3)
     v = update!(s, V[i], nextDt(s.dt, Δτ))
     data[i] = v
     tm[i] = i == 1? Δτ:tm[i-1] +  Δτ
 end
 
-vstack(plot(x=tm, y=data, Geom.line, Scale.y_continuous(minvalue=-80, maxvalue=10)), plot(x = tm,y=V, Geom.line))
+vstack(plot(x=tm, y=data, Geom.line, Scale.y_continuous(minvalue=-80, maxvalue=10)), plot(x = tm,y=V, Geom.bar))
