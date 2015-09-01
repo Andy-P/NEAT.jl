@@ -1,6 +1,10 @@
 using Dates, Gadfly
 
+<<<<<<< HEAD
 # set_default_plot_size(20cm, 15cm)
+=======
+# set_default_plot_size(15cm, 15cm)
+>>>>>>> origin/master
 # simple Integrate and Fire Synapse Mode
 type Synapse
     Ω::Real # membrane resistance [MΩ]
@@ -33,10 +37,17 @@ n = 1000
 s = Synapse(Ω=10,τ=10)
 data = zeros(n)
 # V = copy(data)
+<<<<<<< HEAD
 V = max(randn(n) * 2 + 0.5-,0)
 tm = ones(n)
 t = 0
 # V[:] = 1.61
+=======
+V = max(randn(n) * 1.5 + 0.5,0)
+tm = ones(n)
+t = 0
+V[:] = 1.502
+>>>>>>> origin/master
 for i = 1:n
     Δτ = rand(1:1)
     v = update!(s, V[i], nextDt(s.dt, Δτ))
@@ -44,5 +55,9 @@ for i = 1:n
     tm[i] = i == 1? Δτ:tm[i-1] +  Δτ
 end
 
+<<<<<<< HEAD
 vstack(plot(x=tm, y=data, Geom.line, Scale.y_continuous(minvalue=-80, maxvalue=10)),
        plot(x = tm,y=V, Geom.line))
+=======
+vstack(plot(x=tm, y=data, Geom.line, Scale.y_continuous(minvalue=-80, maxvalue=10)), plot(x = tm,y=V, Geom.bar))
+>>>>>>> origin/master
