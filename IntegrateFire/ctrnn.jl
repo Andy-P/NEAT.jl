@@ -1,6 +1,7 @@
 using Dates, Gadfly
 
-# set_default_plot_size(20cm, 15cm)
+set_default_plot_size(25cm, 35cm)
+
 # simple Integrate and Fire Synapse Mode
 type Synapse
     τ::Real # membrane time constant [ms]
@@ -34,9 +35,9 @@ function getResponse(V::Vector{Float64}, Δτ::Vector{Int64})
 end
 
 n = 500
-Δτ = rand(1:5,n)
-# V = ones(n) * .5
-V = max(randn(n) * 2 .+ 1.,0)
+Δτ = rand(1:20,n)
+# V = ones(n) - .0
+V = max(randn(n) * 2 .+ 0.,0)
 response, tm = getResponse(V, Δτ)
 vstack(plot(x = tm,y=V, Geom.bar), plot(x=tm, y=response, Geom.line))
 

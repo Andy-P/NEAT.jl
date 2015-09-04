@@ -1,10 +1,6 @@
 using Dates, Gadfly
 
-<<<<<<< HEAD
 # set_default_plot_size(20cm, 15cm)
-=======
-# set_default_plot_size(15cm, 15cm)
->>>>>>> origin/master
 # simple Integrate and Fire Synapse Mode
 type Synapse
     Ω::Real # membrane resistance [MΩ]
