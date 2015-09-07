@@ -4,7 +4,7 @@ set_default_plot_size(25cm, 35cm)
 
 # simple Integrate and Fire Synapse Mode
 type Synapse
-    τ::Real # membrane time constant [ms]
+    τ::Real     # membrane time constant [ms]
     dt::DateTime # time stamp of last update
     v::Real # tracks current voltage
     function Synapse(v::Real;τ::Real=10., dt::DateTime=now())
@@ -29,16 +29,20 @@ function getResponse(V::Vector{Float64}, Δτ::Vector{Int64})
     for i = 1:n
         v = update!(s, V[i], nextDt(s.dt, Δτ[i]))
         data[i] = v
-        tm[i] = i == 1? Δτ[i] : tm[i-1] + Δτ[i]
+        tm[i] = i == 1? 0 : tm[i-1] + Δτ[i]
     end
     return data,tm
 end
 
-n = 500
-Δτ = rand(1:20,n)
+n = 20
+Δτ = rand(1:1,n)
 # V = ones(n) - .0
-V = max(randn(n) * 2 .+ 0.,0)
+# V = max(randn(n) * 2 .+ 0.,0)
+V = randn(n) * 2
 response, tm = getResponse(V, Δτ)
-vstack(plot(x = tm,y=V, Geom.bar), plot(x=tm, y=response, Geom.line))
+vstack(plot(x = tm, y=V, Geom.line), plot(x=tm, y=response, Geom.point))
+
+response[1]
+tm[1]
 
 
