@@ -15,7 +15,7 @@ type Synapse
     Synapse(source::Int64, destination::Int64, weight::Float64) = new(source, destination, weight)
 end
 
-incoming(s::Synapse) = s.source * s.weight
+incoming(s::Synapse) = s.weight * s.source
 
 #     def __repr__(self):
 #         return '%s -> %s -> %s' %(self._source._id, self._weight, self._destination._id)
@@ -28,7 +28,7 @@ type Neuron
     activation::Function  # [:sigm, :tahn, :relu]
     response::Float64   # default = 4.924273 (Stanley, p. 146)
     output::Float64     # for recurrent networks all neurons must have an "initial state"
-    function Neuron(neurontype::Symbol, id::Int64, activation::Symbol=:sigm,response::Float64=1.)
+    function Neuron(neurontype::Symbol, id::Int64, bias::Float64=0., activation::Symbol=:sigm,response::Float64=1.)
         new(id,[],bias, neurontype, x->sigmoid(x), response,0)
     end
 end
@@ -42,7 +42,7 @@ end
 function updateActivation!(n::Neuron)
     output = 0.
     for s in n.synapses
-        output += s.incoming()
+        output += incoming(s)
     end
     return output
 end
@@ -63,6 +63,7 @@ type Network
     synapses::Vector{Synapse}
     numInputs::Int64
     Network(numInputs::Int64) = new([],[],　numInputs)
+    Network(neurons::Vector{Neuron},synapses::Vector{Synapse},numInputs::Int64) = new(neurons,synapses,numInputs)
 end
 
 addNeuron(network::Network, neuron::Neuron) = push!(network.neurons,neuron)
@@ -87,7 +88,7 @@ function activate(::FeedForward, network::Network, inputs::Vector)
     @assert length(inputs) == n.numInputs
 
     for i  = 1:length(numInputs)
-            network.neuron[i].output = inputs[inputCnt] # iterates over inputs
+        network.neuron[i].output = inputs[i] # iterates over inputs
     end
 
     # activate all neurons in the network (except for the inputs)
@@ -114,142 +115,41 @@ function activate(::Recurrent, network::Network, inputs::Vector)
     # reresenting all neuron's state at that time (think of it as a clock)
     inputCnt = 0
     currentState = zeros(0)
-    for i  = 1:length(numInputs)
+    for n in network.neuron
         if n.ntype == :INPUT
             inputCnt += 1
-            network.neuron[i].output = inputs[inputCnt] # iterates over inputs
+            n.output = inputs[inputCnt]
         else
             push!(currentState,n.activate())
-
-
         end
     end
 
-
     netOutput = zeros(0)
+    for i = numInputs+1:length(network.neuron)
+        n = network.neuron[i]
+        n.output = currentState[i-numInputs]
+        if n.ntype == :OUTPUT
+            push1(netOutput,n.output)
+        end
+    end
 
-        current_state = []
-        it = iter(inputs)
-        for n in self.__neurons:
-            if n._type == 'INPUT':
-                n._output = it.next() # iterates over inputs
-            else: # hidden or output neurons
-                current_state.append(n.activate())
+    return netOutput
+end
 
-        # updates all neurons at once
-        net_output = []
-        for n, state in zip(self.__neurons[self._num_inputs:], current_state):
-            n._output = state # updates from the previous step
-            if n._type == 'OUTPUT':
-                net_output.append(n._output)
 
-        return net_output
+function createPhenotype(chromo)
+        # Receives a chromosome and returns its phenotype (a neural network)
 
-# class FeedForward(Network):
-#     """ A feedforward network is a particular class of neural network.
-#         Only one hidden layer is considered for now.
-#     """
+    neurons = Array{Neuron,1}[]
+    for ng in chromo.nodeGenes
+        push!(neurons, Neuron(ng.nType, ng.id, ng.bias, ng.activation, ng.response))
+    end
 
-#     def __init__(self, layers, use_bias=False, activation_type=None):
-#         super(FeedForward, self).__init__()
+    synapses = Array{Synapse,1}[]
+    for cg in chromo.connGenes
+        push!(neurons, Synapse(cg.innodeid, cg.outnodeid, cg.weight))
+    end
 
-#         self.__input_layer   = layers[0]
-#         self.__output_layer  = layers[-1]
-#         self.__hidden_layers = layers[1:-1]
-#         self.__use_bias = use_bias
+    return Network(neurons, synapses,length(chromo.sensors))
 
-#         self._num_inputs = layers[0]
-#         self.__create_net(activation_type)
-
-#     def __create_net(self, activation_type):
-
-#         # assign random weights for bias
-#         if self.__use_bias:
-#             r = random.uniform
-#         else:
-#             r = lambda a,b: 0
-
-#         for i in xrange(self.__input_layer):
-#             self.add_neuron(Neuron('INPUT'))
-
-#         for i in xrange(self.__hidden_layers[0]):
-#             self.add_neuron(Neuron('HIDDEN', bias = r(-1,1),
-#                                    response = 1,
-#                                    activation_type = activation_type))
-
-#         for i in xrange(self.__output_layer):
-#             self.add_neuron(Neuron('OUTPUT', bias = r(-1,1),
-#                                    response = 1,
-#                                    activation_type = activation_type))
-
-#         r = random.uniform  # assign random weights
-#         # inputs -> hidden
-#         for i in self.neurons[:self.__input_layer]:
-#                 for h in self.neurons[self.__input_layer:-self.__output_layer]:
-#                         self.add_synapse(Synapse(i, h, r(-1,1)))
-#         # hidden -> outputs
-#         for h in self.neurons[self.__input_layer:-self.__output_layer]:
-#                 for o in self.neurons[-self.__output_layer:]:
-#                         self.add_synapse(Synapse(h, o, r(-1,1)))
-
-# def create_phenotype(chromo):
-#         """ Receives a chromosome and returns its phenotype (a neural network) """
-
-#         neurons_list = [Neuron(ng._type, ng._id,
-#                                ng._bias,
-#                                ng._response,
-#                                ng.activation_type)
-#                         for ng in chromo._node_genes]
-
-#         conn_list = [(cg.innodeid, cg.outnodeid, cg.weight)
-#                      for cg in chromo.conn_genes if cg.enabled]
-
-#         return Network(neurons_list, conn_list, chromo.sensors)
-
-# def create_ffphenotype(chromo):
-#     """ Receives a chromosome and returns its phenotype (a neural network) """
-
-#     # first create inputs
-#     neurons_list = [Neuron('INPUT', ng.id, 0, 0) \
-#                     for ng in chromo.node_genes[:chromo.sensors] if ng.type == 'INPUT']
-
-#     # Add hidden nodes in the right order
-#     for id in chromo.node_order:
-#         neurons_list.append(Neuron('HIDDEN',
-#                                    id, chromo.node_genes[id-1].bias,
-#                                    chromo.node_genes[id-1].response,
-#                                    chromo.node_genes[id-1].activation_type))
-#     # finally the output
-#     neurons_list.extend(Neuron('OUTPUT', ng.id, ng.bias,
-#                                ng.response, ng.activation_type) \
-#                                for ng in chromo.node_genes if ng.type == 'OUTPUT')
-
-#     assert(len(neurons_list) == len(chromo.node_genes))
-
-#     conn_list = [(cg.innodeid, cg.outnodeid, cg.weight) \
-#                  for cg in chromo.conn_genes if cg.enabled]
-
-#     return Network(neurons_list, conn_list, chromo.sensors)
-
-# if __name__ == "__main__":
-#     # Example
-#     #from neat import visualize
-
-#     nn = FeedForward([2,10,3], use_bias=False, activation_type = 'exp')
-#     ##visualize.draw_ff(nn)
-#     print 'Serial activation method: '
-#     for t in range(3):
-#         print nn.sactivate([1,1])
-
-#     #print 'Parallel activation method: '
-#     #for t in range(3):
-#         #print nn.pactivate([1,1])
-
-#     # defining a neural network manually
-#     #neurons = [Neuron('INPUT', 1), Neuron('HIDDEN', 2), Neuron('OUTPUT', 3)]
-#     #connections = [(1, 2, 0.5), (1, 3, 0.5), (2, 3, 0.5)]
-
-#     #net = Network(neurons, connections) # constructs the neural network
-#     #visualize.draw_ff(net)
-#     #print net.pactivate([0.04]) # parallel activation method
-#     #print net # print how many neurons and synapses our network has
+end

@@ -25,13 +25,25 @@ using Base.Test
 #  H1 -> H3 become  H3 -> H1
 
 
-inputs =  [1:10]
-i = 0
-i += 1
-function tick(i)
-   i += 1
-   println("ticking $i")
-end
-timer = Timer(i->tick(i) )
-start_timer(timer, 1, 1)
-stop_timer(timer)
+# if __name__ == "__main__":
+#     # Example
+#     #from neat import visualize
+
+#     nn = FeedForward([2,10,3], use_bias=False, activation_type = 'exp')
+#     ##visualize.draw_ff(nn)
+#     print 'Serial activation method: '
+#     for t in range(3):
+#         print nn.sactivate([1,1])
+
+#     #print 'Parallel activation method: '
+#     #for t in range(3):
+#         #print nn.pactivate([1,1])
+
+#     # defining a neural network manually
+#     #neurons = [Neuron('INPUT', 1), Neuron('HIDDEN', 2), Neuron('OUTPUT', 3)]
+#     #connections = [(1, 2, 0.5), (1, 3, 0.5), (2, 3, 0.5)]
+
+#     #net = Network(neurons, connections) # constructs the neural network
+#     #visualize.draw_ff(net)
+#     #print net.pactivate([0.04]) # parallel activation method
+#     #print net # print how many neurons and synapses our network has
