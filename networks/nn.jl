@@ -1,3 +1,8 @@
+type FeedForward end
+fforward = FeedForward()
+
+type Recurrent end
+recurrent = Recurrent()
 
 sigmoid(x::Float64) = 1.0/(1.0 + math.exp(-x))
 sigmoid(x::Float64, response::Float64) = 1.0/(1.0 + math.exp(-x*response))
@@ -66,64 +71,79 @@ addSynapse(network::Network, synapse::Synapse) = push!(network.synapses,synapse)
 
 flush!(network::Network) = for n in network.neurons  n.output = 0. end
 
-
 #     def __repr__(self):
 #         return '%d nodes and %d synapses' % (len(self.__neurons), len(self.__synapses))
 
-#     #def activate(self, inputs=[]):
-#     #    if Config.feedforward:
-#     #        return self.sactivate(inputs)
-#     #    else:
-#     #        return self.pactivate(inputs)
 
-#     def sactivate(self, inputs=[]):
-#         '''Serial (asynchronous) network activation method. Mostly
-#            used  in classification tasks (supervised learning) in
-#            feedforward topologies. All neurons are updated (activated)
-#            one at a time following their order of importance, so if
-#            you're defining your own feedforward topology, make sure
-#            you got them in the right order of activation.
-#         '''
-#         assert len(inputs) == self._num_inputs, "Wrong number of inputs."
-#         # assign "input neurons'" output values (sensor readings)
+function activate(::FeedForward, network::Network, inputs::Vector)
 
-#         it = iter(inputs)
-#         for n in self.__neurons[:self._num_inputs]:
-#             if(n._type == 'INPUT'):
-#                 n._output = it.next() # iterates over inputs
-#         # activate all neurons in the network (except for the inputs)
-#         net_output = []
-#         for n in self.__neurons[self._num_inputs:]:
-#             n._output = n.activate()
-#             if(n._type == 'OUTPUT'):
-#                 net_output.append(n._output)
-#         return net_output
+    #=  Serial (asynchronous) network activation method. Mostly
+    used  in classification tasks (supervised learning) in
+    feedforward topologies. All neurons are updated (activated)
+    one at a time following their order of importance, so if
+    you're defining your own feedforward topology, make sure
+    you got them in the right order of activation. =#
 
-#     def pactivate(self, inputs=[]):
-#         '''Parallel (synchronous) network activation method. Mostly used
-#            for control and unsupervised learning (i.e., artificial life)
-#            in recurrent networks. All neurons are updated (activated)
-#            simultaneously.
-#         '''
-#         assert len(inputs) == self._num_inputs, "Wrong number of inputs."
+    @assert length(inputs) == n.numInputs
 
-#         # the current state is like a "photograph" taken at each time step
-#         # reresenting all neuron's state at that time (think of it as a clock)
-#         current_state = []
-#         it = iter(inputs)
-#         for n in self.__neurons:
-#             if n._type == 'INPUT':
-#                 n._output = it.next() # iterates over inputs
-#             else: # hidden or output neurons
-#                 current_state.append(n.activate())
-#         # updates all neurons at once
-#         net_output = []
-#         for n, state in zip(self.__neurons[self._num_inputs:], current_state):
-#             n._output = state # updates from the previous step
-#             if n._type == 'OUTPUT':
-#                 net_output.append(n._output)
+    for i  = 1:length(numInputs)
+            network.neuron[i].output = inputs[inputCnt] # iterates over inputs
+    end
 
-#         return net_output
+    # activate all neurons in the network (except for the inputs)
+    netOutput = zeros(0)
+    for n in network.neuron[n.numInputs+1:end]
+        n.output = n.activate()
+        if n._type == :OUTPUT  push!(netOutput,n._output) end
+    end
+
+    return net_output
+
+end
+
+function activate(::Recurrent, network::Network, inputs::Vector)
+
+    #= Parallel (synchronous) network activation method. Mostly used
+    for control and unsupervised learning (i.e., artificial life)
+    in recurrent networks. All neurons are updated (activated)
+    simultaneously. =#
+
+    @assert length(inputs) == n.numInputs
+
+    # the current state is like a "photograph" taken at each time step
+    # reresenting all neuron's state at that time (think of it as a clock)
+    inputCnt = 0
+    currentState = zeros(0)
+    for i  = 1:length(numInputs)
+        if n.ntype == :INPUT
+            inputCnt += 1
+            network.neuron[i].output = inputs[inputCnt] # iterates over inputs
+        else
+            push!(currentState,n.activate())
+
+
+        end
+    end
+
+
+    netOutput = zeros(0)
+
+        current_state = []
+        it = iter(inputs)
+        for n in self.__neurons:
+            if n._type == 'INPUT':
+                n._output = it.next() # iterates over inputs
+            else: # hidden or output neurons
+                current_state.append(n.activate())
+
+        # updates all neurons at once
+        net_output = []
+        for n, state in zip(self.__neurons[self._num_inputs:], current_state):
+            n._output = state # updates from the previous step
+            if n._type == 'OUTPUT':
+                net_output.append(n._output)
+
+        return net_output
 
 # class FeedForward(Network):
 #     """ A feedforward network is a particular class of neural network.

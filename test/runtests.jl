@@ -23,3 +23,15 @@ using Base.Test
 # change connections to creat loop
 #  H2 -> H1 become  H1 -> H2
 #  H1 -> H3 become  H3 -> H1
+
+
+inputs =  [1:10]
+i = 0
+i += 1
+function tick(i)
+   i += 1
+   println("ticking $i")
+end
+timer = Timer(i->tick(i) )
+start_timer(timer, 1, 1)
+stop_timer(timer)
