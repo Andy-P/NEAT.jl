@@ -1,0 +1,101 @@
+# def load(file):
+#     try:
+#         config_file = open(file,'r')
+#     except IOError:
+#         print 'Error: file %s not found!' %file
+#         raise
+#     else:
+#         parameters = ConfigParser()#{'phenotype':{'fully_connected': True}})
+#         parameters.readfp(config_file)
+
+#         # set class attributes
+#         # phenotype
+#         Config.input_nodes          =       int(parameters.get('phenotype','input_nodes'))
+#         Config.output_nodes         =       int(parameters.get('phenotype','output_nodes'))
+#         Config.hidden_nodes         =       int(parameters.get('phenotype','hidden_nodes'))
+#         #print 'fully_connected:',parameters.get('phenotype', 'fully_connected')
+#         Config.fully_connected      =  bool(int(parameters.get('phenotype','fully_connected')))
+#         Config.max_weight           =     float(parameters.get('phenotype','max_weight'))
+#         Config.min_weight           =     float(parameters.get('phenotype','min_weight'))
+#         Config.feedforward          =  bool(int(parameters.get('phenotype','feedforward')))
+#         Config.nn_activation        =           parameters.get('phenotype','nn_activation')  # exp or tanh
+#         Config.weight_stdev         =     float(parameters.get('phenotype','weight_stdev'))
+
+#         # GA
+#         Config.pop_size                 =   int(parameters.get('genetic','pop_size'))
+#         Config.max_fitness_threshold    = float(parameters.get('genetic','max_fitness_threshold'))
+#         Config.prob_addconn             = float(parameters.get('genetic','prob_addconn'))
+#         Config.prob_addnode             = float(parameters.get('genetic','prob_addnode'))
+#         Config.prob_mutatebias          = float(parameters.get('genetic','prob_mutatebias'))
+#         Config.bias_mutation_power      = float(parameters.get('genetic','bias_mutation_power'))
+#         Config.prob_mutate_weight       = float(parameters.get('genetic','prob_mutate_weight'))
+#         Config.weight_mutation_power    = float(parameters.get('genetic','weight_mutation_power'))
+#         Config.prob_togglelink          = float(parameters.get('genetic','prob_togglelink'))
+#         Config.elitism                  = float(parameters.get('genetic','elitism'))
+
+#         # genotype compatibility
+#         Config.compatibility_threshold  = float(parameters.get('genotype compatibility','compatibility_threshold'))
+#         Config.compatibility_change     = float(parameters.get('genotype compatibility','compatibility_change'))
+#         Config.excess_coeficient        = float(parameters.get('genotype compatibility','excess_coeficient'))
+#         Config.disjoint_coeficient      = float(parameters.get('genotype compatibility','disjoint_coeficient'))
+#         Config.weight_coeficient        = float(parameters.get('genotype compatibility','weight_coeficient'))
+
+#         # species
+#         Config.species_size         =   int(parameters.get('species','species_size'))
+#         Config.survival_threshold   = float(parameters.get('species','survival_threshold'))
+#         Config.old_threshold        =   int(parameters.get('species','old_threshold'))
+#         Config.youth_threshold      =   int(parameters.get('species','youth_threshold'))
+#         Config.old_penalty          = float(parameters.get('species','old_penalty'))    # always in (0,1)
+#         Config.youth_boost          = float(parameters.get('species','youth_boost'))   # always in (1,2)
+#         Config.max_stagnation       =   int(parameters.get('species','max_stagnation'))
+
+type Config
+
+    # phenotype config
+    input_nodes::Int64
+    output_nodes::Int64
+    hidden_nodes::Int64
+    fully_connected::Bool
+    max_weight::Float64
+    min_weight::Float64
+    feedforward::Bool
+    nn_activation::Symbol
+    weight_stdev::Float64
+
+
+    # GA config
+    pop_size::Int64
+    max_fitness_threshold::Float64
+    prob_addconn::Float64
+    prob_addnode::Float64
+    prob_mutatebias::Float64
+    bias_mutation_power::Float64
+    prob_mutate_weight::Float64 # dynamic mutation rate (future release)
+    weight_mutation_power::Float64
+    prob_togglelink::Float64
+    elitism::Float64
+
+    #prob_crossover = 0.7  # not implemented (always apply crossover)
+    #prob_weightreplaced = 0.0 # not implemented
+
+    # genotype compatibility
+    compatibility_threshold::Float64
+    compatibility_change::Float64
+    excess_coeficient::Float64
+    disjoint_coeficient::Float64
+    weight_coeficient::Float64
+
+    # species
+    species_size::Int64
+    survival_threshold::Float64 # only the best 20% for each species is allowed to mate
+    old_threshold::Int64
+    youth_threshold::Int64
+    old_penalty::Float64    # always in (0,1)
+    youth_boost::Float64    # always in (1,2)
+    max_stagnation::Int64
+
+    # for a future release
+    #ele_event_time = 1000
+    #ele_events = False
+
+end

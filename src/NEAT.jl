@@ -1,16 +1,9 @@
 module NEAT
 
-type NeatParams
-    inputs::Int64
-    outputs::Int64
-    function NeatParams(inputs::Int64,outputs::Int64)
-       new(inputs,outputs)
-    end
-end
-
-include("population.jl")
-include("genome.jl")
-include("species.jl")
+include("config.jl")
+# include("population.jl")
+# include("genome.jl")
+# include("species.jl")
 
 # export Input, Output, Hidden
 
