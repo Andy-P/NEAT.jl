@@ -1,9 +1,7 @@
+using NEAT
+using Base.Test
 
-examplePath =
+@osx_only params = NEAT.load(joinpath(dirname(@__FILE__),"../examples//doublePole","dp_config.txt"))
+@windows_only params = NEAT.load(joinpath(dirname(@__FILE__),"../examples//doublePole","dp_config.txt"))
 
-@osx_only ls = split(readall(joinpath(dirname(@__FILE__),"../examples//doublePole","dp_config.txt")),"\n")
-
-ls
-
-ls2 = filter(l->length(l)>0 && l[1] != '#', ls)
-ls3 = filter(l->length(l)>0 && l[1] != '#', ls)
+params = NEAT.Config(params)

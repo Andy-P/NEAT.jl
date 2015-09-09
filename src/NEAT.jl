@@ -1,8 +1,8 @@
 module NEAT
 
 include("config.jl")
-# include("population.jl")
 # include("genome.jl")
+# include("population.jl")
 # include("species.jl")
 
 # export Input, Output, Hidden
