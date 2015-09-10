@@ -6,20 +6,21 @@ type NodeGene
     bias::Float64
     response::Float64
     activation::Symbol
-    function NodeGene(id::Int64, nodetype::Symbol, bias::Float64=0, response::Float64=4.924273, activation::Symbol=:sigm)
+    function NodeGene(id::Int64, nodetype::Symbol, bias::Float64=0., response::Float64=4.924273, activation::Symbol=:sigm)
         new(id, nodetype, bias, response, activation)
     end
 end
 
-# def __str__(self):
-#     return "Node %2d %6s, bias %+2.10s, response %+2.10s" \
-#             %(self._id, self._type, self._bias, self._response)
+function Base.show(io::IO, ng::NodeGene)
+    @printf(io, "Node %5d %6s, bias %+2.10s, response %+2.10s\n", ng.id, ng.ntype, ng.bias, ng.response)
+    return
+end
 
 function get_child(self::NodeGene, other::NodeGene)
     # Creates a new NodeGene ramdonly inheriting its attributes from parents
     @assert(self.id == other.id)
 
-    return NodeGene(self._id, self._type,
+    return NodeGene(self.id, self.ntype,
         randbool() ? self.bias : other.bias,
         randbool() ? self.response : other.response,
         self.activation)
@@ -36,7 +37,6 @@ end
 
 function mutate_response(ng::NodeGene, cg::Config)
     #  Mutates the neuron's average firing response.
-    self.response += (rand() * 0.4 - 0.2) * cg.bias_mutation_power
     self.response += randn() * cg.bias_mutation_power
 end
 
@@ -85,9 +85,10 @@ end
 function get_child(ng::CTNodeGene, other::CTNodeGene)
     # Creates a new NodeGene ramdonly inheriting its attributes from parents
     assert(ng.id == other.id)
-    ng = CTNodeGene(ng.id, ng.ntype, randbool()? (ng.bias, other.bias),
-                  randbool()? (ng.response, other.response)), self.activation,
-                  randbool()? (ng.timeConstant, other.timeConstant))
+    ng = CTNodeGene(ng.id, ng.ntype,
+                    randbool()? ng.bias : other.bias,
+                    randbool()? ng.response : other.response, self.activation,
+                    randbool()? ng.timeConstant : other.timeConstant)
     return ng
 end
 
@@ -95,10 +96,11 @@ function copy(ng::CTNodeGene)
     return CTNodeGene(ng.id, ng.ntype, ng.bias, ng.response, ng.activation, ng.timeConstant)
 end
 
-#     def __str__(self):
-#         return "Node %2d %6s, bias %+2.10s, response %+2.10s, activation %s, time constant %+2.5s" \
-#                 % (self._id, self._type, self._bias, self._response,
-#                    self._activation_type, self._time_constant)
+function Base.show(io::IO, ng::CTNodeGene)
+    @printf(io, "Node %2d %6s, bias %+2.10s, response %+2.10s, activation %s, time constant %+2.5s\n",
+            ng.id, ng.ntype, ng.bias, ng.response,ng.activation,ng.timeConstant)
+    return
+end
 
 global_innov_number = 0
 innovations = Dict{(Int64,Int64),Int64}() # global dictionary
@@ -159,14 +161,11 @@ function weight_replaced(cg::ConnectionGene, cf::Config)
         cg.weight = randn() * cf.weight_stdev
 end
 
-
-#     def __str__(self):
-#         s = "In %2d, Out %2d, Weight %+3.5f, " % (self.__in, self.__out, self.__weight)
-#         if self.__enabled:
-#             s += "Enabled, "
-#         else:
-#             s += "Disabled, "
-#         return s + "Innov %d" % (self.__innov_number,)
+function Base.show(io::IO, cg::ConnectionGene)
+    @printf(io, "In %2d, Out %2d, Weight %+3.5f %6s, Innov %d",
+            ng.inId, ng.outId, ng.weight,(ng.enabled? "Enabled":"Disabled"), ng.innovNumber)
+    return
+end
 
 #     def __cmp__(self, other):
 #         return cmp(self.__innov_number, other.__innov_number)
@@ -179,13 +178,8 @@ function split(cg::ConnectionGene, node_id::Int64)
     return new_conn1, new_conn2
 end
 
-#     def copy(self):
-#         return ConnectionGene(self.__in, self.__out, self.__weight,
-#                               self.__enabled, self.__innov_number)
+copy(cg::ConnectionGene) = ConnectionGene(cg.inId, cg.outId, cg.weight, cg.enabled, cg.innovNumber)
 
-is_same_innov(self::ConnectionGene, other::ConnectionGene) = return self.innovNumber == cg.innovNumber
+is_same_innov(self::ConnectionGene, other::ConnectionGene) = self.innovNumber == cg.innovNumber
 
-function get_child(self::ConnectionGene, other::ConnectionGene)
-#         # TODO: average both weights (Stanley, p. 38)
-        return randbool? self:other
-end
+get_child(self::ConnectionGene, other::ConnectionGene) = randbool? self : other

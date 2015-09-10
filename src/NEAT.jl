@@ -1,7 +1,9 @@
 module NEAT
 
+import Base.split
+
 include("config.jl")
-# include("genome.jl")
+include("genome.jl")
 # include("population.jl")
 # include("species.jl")
 

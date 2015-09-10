@@ -84,10 +84,12 @@ type Config
     end
 end
 
-function  load(file::String)
+function loadConfig(file::String)
+    str = readall(file)
+#     println(file,str)
 
-    @osx_only ls = split(readall(file),"\n")
-    @windows_only ls = split(readall(file),"\r\n")
+    str = replace(str, r"\r(\n)?", '\n')
+    ls = split(str, "\n")
 
     ls = filter(l->length(l)>0 && l[1] != '#', ls)
     lsMap = map(x->split(x,'='),ls)
@@ -98,4 +100,3 @@ function  load(file::String)
 
     return params
 end
-
