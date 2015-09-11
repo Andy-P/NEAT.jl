@@ -8,27 +8,30 @@ type NodeGene <: Node
     bias::Float64
     response::Float64
     activation::Symbol
-    function NodeGene(id::Int64, nodetype::Symbol, bias::Float64=0., response::Float64=4.924273, activation::Symbol=:sigm)
-        new(id, nodetype, bias, response, activation)
+    timeConstant::Float64
+    function NodeGene(id::Int64, nodetype::Symbol, bias::Float64=0., response::Float64=4.924273,
+                      activation::Symbol=:sigm, timeConstant::Float64=1.0)
+        new(id, nodetype, bias, response, activation, timeConstant)
     end
 end
 
 function Base.show(io::IO, ng::NodeGene)
-    @printf(io, "Node %5d %6s, bias %+2.10s, response %+2.10s\n", ng.id, ng.ntype, ng.bias, ng.response)
+    @printf(io, "Node %2d %6s, bias %+2.10s, response %+2.10s, activation %s, time constant %+2.5s\n",
+            ng.id, ng.ntype, ng.bias, ng.response,ng.activation,ng.timeConstant)
     return
 end
 
-function get_child(self::NodeGene, other::NodeGene)
+function get_child(ng::NodeGene, other::NodeGene)
     # Creates a new NodeGene ramdonly inheriting its attributes from parents
-    @assert(self.id == other.id)
-
-    return NodeGene(self.id, self.ntype,
-        randbool() ? self.bias : other.bias,
-        randbool() ? self.response : other.response,
-        self.activation)
+    assert(ng.id == other.id)
+    ng = NodeGene(ng.id, ng.ntype,
+                    randbool()? ng.bias : other.bias,
+                    randbool()? ng.response : other.response, ng.activation,
+                    randbool()? ng.timeConstant : other.timeConstant)
+    return ng
 end
 
-function mutate_bias!(ng::Node, cg::Config)
+function mutate_bias!(ng::NodeGene, cg::Config)
     ng.bias += randn() * cg.bias_mutation_power
     if (ng.bias > cg.max_weight)
         ng.bias = cg.max_weight
@@ -37,43 +40,12 @@ function mutate_bias!(ng::Node, cg::Config)
     end
 end
 
-function mutate_response!(ng::Node, cg::Config)
+function mutate_response!(ng::NodeGene, cg::Config)
     #  Mutates the neuron's average firing response.
     ng.response += randn() * cg.bias_mutation_power
 end
 
-function copy(ng::NodeGene)
-    return NodeGene(ng.id, ng.ntype, ng.bias, ng.response, ng.activation)
-end
-
-function mutate!(ng::Node, cg::Config)
-    if rand() < cg.prob_mutatebias mutate_bias!(ng, cg) end
-    if rand() < cg.prob_mutatebias mutate_response!(ng, cg) end
-end
-
-type CTNodeGene <: Node
-    # Continuous-time node gene - used in CTRNNs.
-    # The main difference here is the addition of
-    # a decay rate given by the time constant.
-    id::Int64
-    ntype::Symbol
-    bias::Float64
-    response::Float64
-    activation::Symbol
-    timeConstant::Float64
-    function CTNodeGene(id::Int64, nodetype::Symbol, bias::Float64=0., response::Float64=4.924273,
-                      activation::Symbol=:sigm, timeConstant::Float64=1.0)
-        new(id, nodetype, bias, response, activation, timeConstant)
-    end
-end
-
-function mutate!(ng::CTNodeGene, cf::Config)
-    if rand() < cf.prob_mutatebias mutate_bias!(ng, cf) end
-    if rand() < cf.prob_mutatebias mutate_response!(ng, cf) end
-#     if rand() < 0.1 ng.mutate_time_constant() end
-end
-
-function mutate_time_constant(ng::CTNodeGene, cf::Config)
+function mutate_time_constant(ng::NodeGene, cf::Config)
     # Warning: pertubing the time constant (tau) may result in numerical instability
     ng.timeConstant += randn() * .001
     if ng.timeConstant > cf.max_weight
@@ -83,26 +55,17 @@ function mutate_time_constant(ng::CTNodeGene, cf::Config)
     end
 end
 
-
-function get_child(ng::CTNodeGene, other::CTNodeGene)
-    # Creates a new NodeGene ramdonly inheriting its attributes from parents
-    assert(ng.id == other.id)
-    ng = CTNodeGene(ng.id, ng.ntype,
-                    randbool()? ng.bias : other.bias,
-                    randbool()? ng.response : other.response, ng.activation,
-                    randbool()? ng.timeConstant : other.timeConstant)
-    return ng
+function mutate!(ng::NodeGene, cg::Config)
+    if rand() < cg.prob_mutatebias mutate_bias!(ng, cg) end
+    if rand() < cg.prob_mutatebias mutate_response!(ng, cg) end
+#     if rand() < 0.1 ng.mutate_time_constant() end
 end
 
-function copy(ng::CTNodeGene)
+function copy(ng::NodeGene)
+#     return NodeGene(ng.id, ng.ntype, ng.bias, ng.response, ng.activation)
     return CTNodeGene(ng.id, ng.ntype, ng.bias, ng.response, ng.activation, ng.timeConstant)
 end
 
-function Base.show(io::IO, ng::CTNodeGene)
-    @printf(io, "Node %2d %6s, bias %+2.10s, response %+2.10s, activation %s, time constant %+2.5s\n",
-            ng.id, ng.ntype, ng.bias, ng.response,ng.activation,ng.timeConstant)
-    return
-end
 
 get_new_innov_number(g::Global) =  g.innov_number += 1
 
@@ -125,7 +88,7 @@ type ConnectionGene
         else
             innovNumber = innov
         end
-        println("innovNumber = $innovNumber")
+#         println("innovNumber = $innovNumber")
         new(inId, outId, weight, enable, key, innovNumber)
     end
 end

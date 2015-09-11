@@ -2,17 +2,23 @@ module NEAT
 
 import Base.split
 
+include("config.jl")
+
 # fills roll of class variables
 type Global
+    chromosomeCnt::Int64
     nodeCnt::Int64
     innov_number::Int64
     innovations::Dict{(Int64,Int64),Int64}
-    function Global()
-        new(0,0,Dict{(Int64,Int64),Int64}()) # global dictionary
+    cg::Config
+    function Global(cg::Config)
+        new(0,0,0,Dict{(Int64,Int64),Int64}(),cg) # global dictionary
     end
 end
-include("config.jl")
+
 include("genome.jl")
+include("chromosome.jl")
+
 # include("population.jl")
 # include("species.jl")
 
