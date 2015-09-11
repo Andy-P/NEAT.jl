@@ -104,81 +104,72 @@ function Base.show(io::IO, ng::CTNodeGene)
     return
 end
 
-innovations = Dict{(Int64,Int64),Int64}() # global dictionary
-
-get_new_innov_number(global_innov_number::Int64) =  global_innov_number += 1
+get_new_innov_number(g::Global) =  g.innov_number += 1
 
 type ConnectionGene
     inId::Int64
     outId::Int64
     weight::Float64
-    enabled::Bool
+    enable::Bool
     key::(Int64,Int64)
     innovNumber::Int64
-    function ConnectionGene(inId::Int64, outId::Int64, weight::Float64, enabled::Bool=true, innov::Int64=0)
+    function ConnectionGene(g::Global,inId::Int64, outId::Int64, weight::Float64, enable::Bool=true, innov::Int64=0)
         key = (inId, outId)
         if innov == 0
-            if haskey(innovations,key)
-                innovNumber = innovations[key]
+            if haskey(g.innovations,key)
+                innovNumber = g.innovations[key]
             else
-                innovNumber = get_new_innov_number()
-                innovations[key] = innovNumber
+                innovNumber = get_new_innov_number(g)
+                g.innovations[key] = innovNumber
             end
         else
             innovNumber = innov
         end
-        innovNumber = 1
-        new(inId, outId, weight, enabled, key, innovNumber)
+        println("innovNumber = $innovNumber")
+        new(inId, outId, weight, enable, key, innovNumber)
     end
 end
 
-function mutate(cg::ConnectionGene, cf::Config)
-
+function mutate!(cg::ConnectionGene, cf::Config)
     if rand() < cf.prob_mutate_weight
-        mutate_weight(cg, cf)
+        mutate_weight!(cg, cf)
     end
-
-    if rand() <  cf.prob_togglelink
+    if rand() < cf.prob_togglelink
         cg.enable = true
     end
-
 end
 
-function mutate_weight(cg::ConnectionGene, cf::Config)
+function mutate_weight!(cg::ConnectionGene, cf::Config)
 #     cg.weight += (rand() * 2 -1) * cf.weight_mutation_power
     cg.weight += randn() * cf.weight_mutation_power
-
-    if cg.weight > Config.max_weight
-        cg.weight = Config.max_weight
-    elseif cg.weight < Config.min_weight
-        cg.weight = Config.min_weight
+    if cg.weight > cf.max_weight
+        cg.weight = cf.max_weight
+    elseif cg.weight < cf.min_weight
+        cg.weight = cf.min_weight
     end
 end
 
-function weight_replaced(cg::ConnectionGene, cf::Config)
+function weight_replaced!(cg::ConnectionGene, cf::Config)
         # cg.weight = random.uniform(-Config.random_range, Config.random_range)
         cg.weight = randn() * cf.weight_stdev
 end
 
-function Base.show(io::IO, cg::ConnectionGene)
-    @printf(io, "In: %2d, Out: %2d, Weight: %+3.5f, %6s, InnovID: %d",
-            cg.inId, cg.outId, cg.weight,(cg.enabled? "Enabled":"Disabled"), cg.innovNumber)
-    return
-end
-
-#     def __cmp__(self, other):
-#         return cmp(self.__innov_number, other.__innov_number)
-
-function split(cg::ConnectionGene, node_id::Int64)
+function split(g::Global,cg::ConnectionGene, node_id::Int64)
     # Splits a connection, creating two new connections and disabling this one """
-    cg.enabled = false
-    new_conn1 = ConnectionGene(cg.inId, node_id, 1.0, true)
-    new_conn2 = ConnectionGene(node_id, cg.outId, cg.weight, true)
+    cg.enable = false
+    new_conn1 = ConnectionGene(g, cg.inId, node_id, 1.0, true)
+    new_conn2 = ConnectionGene(g, node_id, cg.outId, cg.weight, true)
     return new_conn1, new_conn2
 end
 
-copy(cg::ConnectionGene) = ConnectionGene(cg.inId, cg.outId, cg.weight, cg.enabled, cg.innovNumber)
+copy(g::Global, cg::ConnectionGene) = ConnectionGene(g, cg.inId, cg.outId, cg.weight, cg.enable, cg.innovNumber)
 
-is_same_innov(self::ConnectionGene, other::ConnectionGene) = self.innovNumber == cg.innovNumber
+is_same_innov(self::ConnectionGene, other::ConnectionGene) = self.innovNumber == other.innovNumber
 
-get_child(self::ConnectionGene, other::ConnectionGene) = randbool? self : other
+get_child(self::ConnectionGene, other::ConnectionGene) = randbool() ? self : other
+
+function Base.show(io::IO, cg::ConnectionGene)
+    @printf(io, "In: %2d, Out: %2d, Weight: %+3.5f, %6s, InnovID: %d",
+            cg.inId, cg.outId, cg.weight,(cg.enable? "Enabled":"Disabled"), cg.innovNumber)
+    return
+end
