@@ -1,4 +1,6 @@
-type NodeGene
+abstract Node
+
+type NodeGene <: Node
     #= A node gene encodes the basic artificial neuron model.
     nodetype should be "INPUT", "HIDDEN", or "OUTPUT" =#
     id::Int64
@@ -26,7 +28,7 @@ function get_child(self::NodeGene, other::NodeGene)
         self.activation)
 end
 
-function mutate_bias(ng::NodeGene, cg::Config)
+function mutate_bias!(ng::Node, cg::Config)
     ng.bias += randn() * cg.bias_mutation_power
     if (ng.bias > cg.max_weight)
         ng.bias = cg.max_weight
@@ -35,21 +37,21 @@ function mutate_bias(ng::NodeGene, cg::Config)
     end
 end
 
-function mutate_response(ng::NodeGene, cg::Config)
+function mutate_response!(ng::Node, cg::Config)
     #  Mutates the neuron's average firing response.
-    self.response += randn() * cg.bias_mutation_power
+    ng.response += randn() * cg.bias_mutation_power
 end
 
 function copy(ng::NodeGene)
     return NodeGene(ng.id, ng.ntype, ng.bias, ng.response, ng.activation)
 end
 
-function mutate(ng::NodeGene, cg::Config)
-    if rand() < cg.prob_mutatebias ng.mutate_bias(ng, cg) end
-    if rand() < cg.prob_mutatebias ng.mutate_response(ng, cg) end
+function mutate!(ng::Node, cg::Config)
+    if rand() < cg.prob_mutatebias mutate_bias!(ng, cg) end
+    if rand() < cg.prob_mutatebias mutate_response!(ng, cg) end
 end
 
-type CTNodeGene
+type CTNodeGene <: Node
     # Continuous-time node gene - used in CTRNNs.
     # The main difference here is the addition of
     # a decay rate given by the time constant.
@@ -59,15 +61,15 @@ type CTNodeGene
     response::Float64
     activation::Symbol
     timeConstant::Float64
-    function NodeGene(id::Int64, nodetype::Symbol, bias::Float64=0, response::Float64=4.924273,
-                      activation::Symbol=:sigm, timeConstant=1.0)
+    function CTNodeGene(id::Int64, nodetype::Symbol, bias::Float64=0., response::Float64=4.924273,
+                      activation::Symbol=:sigm, timeConstant::Float64=1.0)
         new(id, nodetype, bias, response, activation, timeConstant)
     end
 end
 
-function mutate(ng::CTNodeGene, cf::Config)
-    if rand() < cf.prob_mutatebias ng.mutate_bias(ng, cf) end
-    if rand() < cf.prob_mutatebias ng.mutate_response(ng, cf) end
+function mutate!(ng::CTNodeGene, cf::Config)
+    if rand() < cf.prob_mutatebias mutate_bias!(ng, cf) end
+    if rand() < cf.prob_mutatebias mutate_response!(ng, cf) end
 #     if rand() < 0.1 ng.mutate_time_constant() end
 end
 
@@ -87,7 +89,7 @@ function get_child(ng::CTNodeGene, other::CTNodeGene)
     assert(ng.id == other.id)
     ng = CTNodeGene(ng.id, ng.ntype,
                     randbool()? ng.bias : other.bias,
-                    randbool()? ng.response : other.response, self.activation,
+                    randbool()? ng.response : other.response, ng.activation,
                     randbool()? ng.timeConstant : other.timeConstant)
     return ng
 end
@@ -102,13 +104,9 @@ function Base.show(io::IO, ng::CTNodeGene)
     return
 end
 
-global_innov_number = 0
 innovations = Dict{(Int64,Int64),Int64}() # global dictionary
 
-function get_new_innov_number()
-    global_innov_number += 1
-    return global_innov_number
-end
+get_new_innov_number(global_innov_number::Int64) =  global_innov_number += 1
 
 type ConnectionGene
     inId::Int64
@@ -117,7 +115,7 @@ type ConnectionGene
     enabled::Bool
     key::(Int64,Int64)
     innovNumber::Int64
-    function ConnectionGene(inId::Int64, outId::Int64, weight::Float64, enabled::Bool, innov::Int64=0)
+    function ConnectionGene(inId::Int64, outId::Int64, weight::Float64, enabled::Bool=true, innov::Int64=0)
         key = (inId, outId)
         if innov == 0
             if haskey(innovations,key)
@@ -129,6 +127,7 @@ type ConnectionGene
         else
             innovNumber = innov
         end
+        innovNumber = 1
         new(inId, outId, weight, enabled, key, innovNumber)
     end
 end
@@ -162,8 +161,8 @@ function weight_replaced(cg::ConnectionGene, cf::Config)
 end
 
 function Base.show(io::IO, cg::ConnectionGene)
-    @printf(io, "In %2d, Out %2d, Weight %+3.5f %6s, Innov %d",
-            ng.inId, ng.outId, ng.weight,(ng.enabled? "Enabled":"Disabled"), ng.innovNumber)
+    @printf(io, "In: %2d, Out: %2d, Weight: %+3.5f, %6s, InnovID: %d",
+            cg.inId, cg.outId, cg.weight,(cg.enabled? "Enabled":"Disabled"), cg.innovNumber)
     return
 end
 
