@@ -9,14 +9,14 @@ type NodeGene <: Node
     response::Float64
     activation::Symbol
     timeConstant::Float64
-    function NodeGene(id::Int64, nodetype::Symbol, bias::Float64=0., response::Float64=4.924273,
+    function NodeGene(id::Int64, nodetype::Symbol, bias::Float64=0., response::Float64=1., # 4.924273,
                       activation::Symbol=:sigm, timeConstant::Float64=1.0)
         new(id, nodetype, bias, response, activation, timeConstant)
     end
 end
 
 function Base.show(io::IO, ng::NodeGene)
-    @printf(io, "Node %2d %6s, bias %+2.10s, response %+2.10s, activation %s, time constant %+2.5s\n",
+    @printf(io, "Node %2d %6s, bias=%+2.10s, response=%+2.10s, %s(), time constant=%+2.5s\n",
             ng.id, ng.ntype, ng.bias, ng.response,ng.activation,ng.timeConstant)
     return
 end
