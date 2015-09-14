@@ -61,12 +61,6 @@ function mutate!(ng::NodeGene, cg::Config)
 #     if rand() < 0.1 ng.mutate_time_constant() end
 end
 
-function copy(ng::NodeGene)
-#     return NodeGene(ng.id, ng.ntype, ng.bias, ng.response, ng.activation)
-    return CTNodeGene(ng.id, ng.ntype, ng.bias, ng.response, ng.activation, ng.timeConstant)
-end
-
-
 get_new_innov_number(g::Global) =  g.innov_number += 1
 
 type ConnectionGene
@@ -125,11 +119,20 @@ function split(g::Global,cg::ConnectionGene, node_id::Int64)
     return new_conn1, new_conn2
 end
 
-copy(g::Global, cg::ConnectionGene) = ConnectionGene(g, cg.inId, cg.outId, cg.weight, cg.enable, cg.innovNumber)
-
 is_same_innov(self::ConnectionGene, other::ConnectionGene) = self.innovNumber == other.innovNumber
 
 get_child(self::ConnectionGene, other::ConnectionGene) = randbool() ? self : other
+
+function maxInnov(cgs::Dict{(Int64,Int64), ConnectionGene})
+    @assert length(cgs) > 0
+
+    cgsKeys = collect(keys(cgs))
+    maxCg = cgs[cgsKeys[1]]
+    for key in cgsKeys
+        maxCg = cgs[key].innovNumber > maxCg.innovNumber? cgs[key]: maxCg
+    end
+    return maxCg
+end
 
 function Base.show(io::IO, cg::ConnectionGene)
     @printf(io, "In: %2d, Out: %2d, Weight: %+3.5f, %6s, InnovID: %d",

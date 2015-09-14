@@ -87,10 +87,11 @@ cg3 = NEAT.get_child(cg,cg2)
 @test (cg3==cg && cg3 == cg2) == false
 
 # different object but with same values
-cg2 = NEAT.copy(g,cg)
+cg2 = NEAT.deepcopy(cg)
 @test cg2 != cg
 @test cg2.inId == cg.inId
 @test cg2.outId == cg.outId
 @test cg2.weight == cg.weight
 @test cg2.enable == cg.enable
 @test cg2.innovNumber == cg.innovNumber
+

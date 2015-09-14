@@ -52,93 +52,79 @@ function mutate(ch::Chromosome)
 end
 
 
-function crossover(self::Chromosome, other::Chromosome)
+function crossover(g::Global, self::Chromosome, other::Chromosome)
     # Crosses over parents' chromosomes and returns a child
 
     # This can't happen! Parents must belong to the same species.
-#         assert self.species_id == other.species_id, 'Different parents species ID: %d vs %d' \
-#                                                          % (self.species_id, other.species_id)
+    @assert self.species_id == other.species_id
 
-#         # TODO: if they're of equal fitnesses, choose the shortest
-        if self.fitness > other.fitness
-            parent1 = self
-            parent2 = other
-        else
-            parent1 = other
-            parent2 = self
-        end
+    # TODO: if they're of equal fitnesses, choose the shortest
+    parent1, parent2 = self.fitness >= other.fitness? (self,other):(other,self)
 
-#         # creates a new child
-#         child = self.__class__(self.id, other.id, self._node_gene_type, self._conn_gene_type)
+    # create a new child
+    child = Chromosome(g, self.id, other.id, self.node_gene_type, self.conn_gene_type)
+    inherit_genes(g, child ,parent1, parent2)
+    child.species_id = parent1.species_id
+    #child._input_nodes = parent1._input_nodes
 
-#         child._inherit_genes(parent1, parent2)
-
-#         child.species_id = parent1.species_id
-#         #child._input_nodes = parent1._input_nodes
-
-#         return child
+    return child
 end
 
-function inherit_genes(child, parent1, parent2)
+function inherit_genes(g::Global, child::Chromosome, parent1::Chromosome, parent2::Chromosome)
     # Applies the crossover operator.
-#     @assert(parent1.fitness >= parent2.fitness)
+    @assert parent1.fitness >= parent2.fitness
 
-#     # Crossover connection genes
-#     for cg1 in parent1.connection_genes
-#         if haskey(parent2.connection_gene,cg1.key)
-#             cg2 = parent2._connection_genes[cg1.key]
-#         except KeyError:
-#             # Copy excess or disjoint genes from the fittest parent
-#             child._connection_genes[cg1.key] = cg1.copy()
-#         else
-#             if cg2.is_same_innov(cg1) # Always true for *global* INs
-#                 # Homologous gene found
-#                 new_gene = cg1.get_child(cg2)
-#                 #new_gene.enable() # avoids disconnected neurons
-#             else
-#                 new_gene = cg1.copy()
-#             end
-#         end
-#     end
-#             child._connection_genes[new_gene.key] = new_gene
+    # Crossover connection genes
+    for (key, cg1) in parent1.connection_genes
+        if haskey(parent2.connection_genes, key)
+            cg2 = parent2.connection_genes[cg1.key]
+            gene = is_same_innov(cg1, cg2)? deepcopy(get_child(cg1, cg2)) : deepcopy(cg1)
+            child.connection_genes[cg1.key] = gene
+        else # Copy excess or disjoint genes from the fittest parent
+            child.connection_genes[cg1.key] = deepcopy(cg1)
+        end
+    end
 
-#         # Crossover node genes
-#         for i, ng1 in enumerate(parent1._node_genes):
-#             try:
-#                 # matching node genes: randomly selects the neuron's bias and response
-#                 child._node_genes.append(ng1.get_child(parent2._node_genes[i]))
-#             except IndexError:
-#                 # copies extra genes from the fittest parent
-#                 child._node_genes.append(ng1.copy())
+    # Crossover node genes
+    for i = 1:length(parent1.node_genes)
+        ng1 = parent1.node_genes[i]
+        # matching node genes: randomly selects the neuron's bias and response
+        if length(parent2.node_genes) >= i && parent2.node_genes[i].id == ng1.id
+            push!(child.node_genes, get_child(ng1, parent2.node_genes[i]))
+        else
+            # copies extra genes from the fittest parent
+            push!(child.node_genes, deepcopy(ng1))
+        end
+    end
 end
 
 
 function mutate_add_node!(ch::Chromosome, g::Global)
-        # Choose a random connection to split
-        ks = collect(keys(ch.connection_genes))
-        conn_to_split = ch.connection_genes[ks[rand(1:length(ks))]]
+    # Choose a random connection to split
+    ks = collect(keys(ch.connection_genes))
+    toSpilt = rand(1:length(ks))
+    conn_to_split = ch.connection_genes[ks[toSpilt]]
 
-        ng = NodeGene(length(ch.node_genes)+1,:HIDDEN, 0., 1., g.cg.nn_activation, 1.0)
-        push!(ch.node_genes, ng)
-        new_conn1, new_conn2 = split(g, conn_to_split, ng.id)
-        ch.connection_genes[new_conn1.key] = new_conn1
-        ch.connection_genes[new_conn2.key] = new_conn2
-        return (ng, conn_to_split) # the return is only used in genome_feedforward
+    ng = NodeGene(length(ch.node_genes)+1,:HIDDEN, 0., 1., g.cg.nn_activation, 1.0)
+#     println("To Split: $toSpilt \n   $conn_to_split\n   $ng")
+    push!(ch.node_genes, ng)
+    new_conn1, new_conn2 = split(g, conn_to_split, ng.id)
+    ch.connection_genes[new_conn1.key] = new_conn1
+    ch.connection_genes[new_conn2.key] = new_conn2
+    return (ng, conn_to_split) # the return is only used in genome_feedforward
 end
 
 
 function mutate_add_connection!(ch::Chromosome, g::Global)
     # Only for recurrent networks
     total_possible = (length(ch.node_genes) - ch.inputCnt)  * length(ch.node_genes)
-    println("total_possible $total_possible")
     remaining_conns = total_possible - length(ch.connection_genes)
-    println("remaining_conns $remaining_conns")
+
     # Check if new connection can be added:
     if remaining_conns > 0
         n = rand(1:remaining_conns)
         count = 1
         # Count connections
-        println("n $n")
         for in_node in ch.node_genes
             for out_node in ch.node_genes[ch.inputCnt+1:end]
                 if !haskey(ch.connection_genes,(in_node.id, out_node.id)) # if fDree connection
@@ -146,7 +132,7 @@ function mutate_add_connection!(ch::Chromosome, g::Global)
                         weight = randn() * g.cg.weight_stdev
                         cg = ConnectionGene(g, in_node.id, out_node.id, weight, true)
                         ch.connection_genes[cg.key] = cg
-                        println(cg)
+#                         println(cg)
                         return
                     end
                     count += 1
@@ -157,44 +143,37 @@ function mutate_add_connection!(ch::Chromosome, g::Global)
 end
 
 # compatibility function
-function distance(self::Chromosome, other::Chromosome)
+function distance(g::Global, self::Chromosome, other::Chromosome)
+
     # Returns the distance between this chromosome and the other.
-#     if len(self._connection_genes) > len(other._connection_genes):
-#         chromo1 = self
-#         chromo2 = other
-#     else:
-#         chromo1 = other
-#         chromo2 = self
+    chromo1, chromo2 = length(self.connection_genes) > length(other.connection_genes)? (self,other):(other,self)
 
-#     weight_diff = 0
-#     matching = 0
-#     disjoint = 0
-#     excess = 0
+    weight_diff = 0
+    matching = 0
+    disjoint = 0
+    excess = 0
 
-#     max_cg_chromo2 = max(chromo2._connection_genes.values())
+    max_cg_chromo2 = maxInnov(chromo2.connection_genes)
 
-#     for cg1 in chromo1._connection_genes.values():
-#         try:
-#             cg2 = chromo2._connection_genes[cg1.key]
-#         except KeyError:
-#             if cg1 > max_cg_chromo2:
-#                 excess += 1
-#             else:
-#                 disjoint += 1
-#         else:
-#             # Homologous genes
-#             weight_diff += math.fabs(cg1.weight - cg2.weight)
-#             matching += 1
+    for (k, cg1) in chromo1.connection_genes
+        if haskey(chromo2.connection_genes, k)
+            # Homologous genes
+            cg2 = chromo2.connection_genes[cg1.key]
+            weight_diff += abs(cg1.weight - cg2.weight)
+            matching += 1
+        else
+            if cg1.innovNumber > max_cg_chromo2.innovNumber
+                excess += 1
+            else
+                disjoint += 1
+            end
+        end
+    end
 
-#     disjoint += len(chromo2._connection_genes) - matching
+    disjoint += length(chromo2.connection_genes) - matching
+    d = g.cg.excess_coeficient * excess + g.cg.disjoint_coeficient * disjoint
 
-#     #assert(matching > 0) # this can't happen
-#     distance = Config.excess_coeficient * excess + \
-#                Config.disjoint_coeficient * disjoint
-#     if matching > 0:
-#         distance += Config.weight_coeficient * (weight_diff/matching)
-
-#     return distance
+    return matching > 0? d + g.cg.weight_coeficient * weight_diff / matching : d
 end
 
 function size(ch::Chromosome)
@@ -205,7 +184,6 @@ function size(ch::Chromosome)
 
     return num_hidden, conns_enabled
 end
-#         return (num_hidden, conns_enabled)
 
 #     def __cmp__(self, other)
 #         """ First compare chromosomes by their fitness and then by their id.
@@ -215,16 +193,20 @@ end
 #         #return cmp(self.fitness, other.fitness) or cmp(other.id, self.id)
 #         return cmp(self.fitness, other.fitness)
 
-#     def __str__(self)
-#         s = "Nodes:"
-#         for ng in self._node_genes:
-#             s += "\n\t" + str(ng)
-#         s += "\nConnections:"
-#         connections = self._connection_genes.values()
-#         connections.sort()
-#         for c in connections:
-#             s += "\n\t" + str(c)
-#         return s
+function Base.show(io::IO, ch::Chromosome)
+    s = "Nodes:\n"
+    for ng in ch.node_genes
+        s = "$(s)\t$(ng)"
+    end
+    s = "$(s)Connections:"
+    connections = collect(keys(ch.connection_genes))
+    sort!(connections)
+    for key in connections
+        s = "$(s)\n\t$(ch.connection_genes[key])"
+    end
+     @printf(io,"%6s", s)
+    return
+end
 
 #     def add_hidden_nodes(self, num_hidden)
 #         id = len(self._node_genes)+1
