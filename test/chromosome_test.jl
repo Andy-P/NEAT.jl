@@ -55,7 +55,7 @@ ng, cg = NEAT.mutate_add_node!(ch2,g)
     create_fully_connected(g),NEAT.create_fully_connected(g)) > 0
 
 child = NEAT.Chromosome(g, ch1.id, ch2.id, :NodeGene,:ConnectionGene)
-NEAT.inherit_genes(g, child, ch1, ch2)
+NEAT.inherit_genes!(g, child, ch1, ch2)
 @test length(child.node_genes) == 7 # test that it is larger of two
 @test length(child.connection_genes) == 9 # test that it is larger of two
 

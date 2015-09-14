@@ -63,14 +63,14 @@ function crossover(g::Global, self::Chromosome, other::Chromosome)
 
     # create a new child
     child = Chromosome(g, self.id, other.id, self.node_gene_type, self.conn_gene_type)
-    inherit_genes(g, child ,parent1, parent2)
+    inherit_genes!(g, child ,parent1, parent2)
     child.species_id = parent1.species_id
     #child._input_nodes = parent1._input_nodes
 
     return child
 end
 
-function inherit_genes(g::Global, child::Chromosome, parent1::Chromosome, parent2::Chromosome)
+function inherit_genes!(g::Global, child::Chromosome, parent1::Chromosome, parent2::Chromosome)
     # Applies the crossover operator.
     @assert parent1.fitness >= parent2.fitness
 
@@ -208,26 +208,28 @@ function Base.show(io::IO, ch::Chromosome)
     return
 end
 
-#     def add_hidden_nodes(self, num_hidden)
-#         id = len(self._node_genes)+1
-#         for i in range(num_hidden):
-#             node_gene = self._node_gene_type(id,
-#                                           nodetype = 'HIDDEN',
-#                                           activation_type = Config.nn_activation)
-#             self._node_genes.append(node_gene)
-#             id += 1
-#             # Connect all nodes to it
-#             for pre in self._node_genes:
-#                 weight = random.gauss(0, Config.weight_stdev)
-#                 cg = self._conn_gene_type(pre.id, node_gene.id, weight, True)
-#                 self._connection_genes[cg.key] = cg
-#             # Connect it to all nodes except input nodes
-#             for post in self._node_genes[self._input_nodes:]:
-#                 weight = random.gauss(0, Config.weight_stdev)
-#                 cg = self._conn_gene_type(node_gene.id, post.id, weight, True)
-#                 self._connection_genes[cg.key] = cg
+function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64)
 
-#     @classmethod
+    id = length(ch.node_genes)+1
+    for i in 1:num_hidden
+        node_gene = NodeGene(id, :HIDDEN)
+        push!(ch.node_genes, node_gene)
+        id += 1
+        # Connect all nodes to it
+        for pre in ch.node_genes
+            weight = randn() * g.cg.weight_stdev
+            cg = ConnectionGene(pre.id, node_gene.id, weight)
+            ch.connection_genes[cg.key] = cg
+        end
+        # Connect it to all nodes except input nodes
+        for post in ch.node_genes[self._input_nodes+1:end]
+            weight = randn() * g.cg.weight_stdev
+            cg = ConnectionGene(node_gene.id, post.id, weight)
+            ch.connection_genes[cg.key] = cg
+        end
+    end
+
+end
 function create_unconnected(g::Global)
 
     # Creates a chromosome for an unconnected feedforward network with no hidden nodes.
