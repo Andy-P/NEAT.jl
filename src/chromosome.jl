@@ -1,12 +1,15 @@
 # Temporary workaround - default settings
 #node_gene_type = genome.NodeGene
 # conn_gene_type = genome.ConnectionGene
+abstract ChromoType
+type Recurrent   <: ChromoType end;
+type FeedForward <: ChromoType end;
 
 type Chromosome
     id::Int64
     inputCnt::Int64
     outputCnt::Int64
-    node_gene_type::Symbol
+    node_gene_type::ChromoType
     conn_gene_type::Symbol
     connection_genes::Dict{(Int64,Int64),ConnectionGene}
     node_genes::Vector{NodeGene}
@@ -14,8 +17,9 @@ type Chromosome
     species_id::Int64
     parent1_id::Int64
     parent2_id::Int64
+    node_order::Vector{NodeGene}
     # a chromosome for general recurrent neural networks.
-    function Chromosome(g::Global, parent1_id::Int64, parent2_id::Int64, node_gene_type::Symbol, conn_gene_type::Symbol)
+    function Chromosome(g::Global, parent1_id::Int64, parent2_id::Int64, node_gene_type::ChromoType, conn_gene_type::Symbol)
 
         new(incChromeId!(g),
             g.cg.input_nodes, g.cg.output_nodes,
@@ -30,7 +34,9 @@ type Chromosome
             0, # species_id
 
             # parents ids: helps in tracking chromosome's genealogy
-            parent1_id, parent2_id)
+            parent1_id, parent2_id,
+            [] # delineates node order for feedforward networks
+            )
     end
 end
 
@@ -39,15 +45,15 @@ function incChromeId!(g::Global)
     return g.chromosomeCnt
 end
 
-function mutate(ch::Chromosome)
+function mutate(ch::Chromosome, g::Global)
     # Mutates the chromosome
     if rand() < Config.prob_addnode
-        ch.mutate_add_node!()
+        mutate_add_node!(ch, g, ch.node_gene_type)
     elseif rand() < Config.prob_addconn
-        ch.mutate_add_connection!()
+        mutate_add_connection!(ch, g, ch.node_gene_type)
     else
-        map(cg -> cg.mutate(),ch.connection_genes) # mutate weights
-        map(ng -> ng.mutate(),ch.node_genes[ch.inputCnt+1:end]) # mutate bias, response, and etc...
+        map(cg -> mutate(cg, g.cg), ch.connection_genes) # mutate weights
+        map(ng -> mutate(ng, g.cg), ch.node_genes[ch.inputCnt+1:end]) # mutate bias, response, and etc...
     end
 end
 
@@ -96,10 +102,14 @@ function inherit_genes!(g::Global, child::Chromosome, parent1::Chromosome, paren
             push!(child.node_genes, deepcopy(ng1))
         end
     end
+
+    child.node_order = parent1.node_order[:]
 end
 
 
-function mutate_add_node!(ch::Chromosome, g::Global)
+#----------  Recurrent Mutation  ----------
+
+function mutate_add_node!(ch::Chromosome, g::Global,::Recurrent)
     # Choose a random connection to split
     ks = collect(keys(ch.connection_genes))
     toSpilt = rand(1:length(ks))
@@ -115,7 +125,7 @@ function mutate_add_node!(ch::Chromosome, g::Global)
 end
 
 
-function mutate_add_connection!(ch::Chromosome, g::Global)
+function mutate_add_connection!(ch::Chromosome, g::Global, ::Recurrent)
     # Only for recurrent networks
     total_possible = (length(ch.node_genes) - ch.inputCnt)  * length(ch.node_genes)
     remaining_conns = total_possible - length(ch.connection_genes)
@@ -141,6 +151,96 @@ function mutate_add_connection!(ch::Chromosome, g::Global)
         end
     end
 end
+
+#----------  FeedForward Mutation  ----------
+
+function mutate_add_node(ch::Chromosome, g::Global,::FeedForward)
+
+#         ng, split_conn = super(FFChromosome, self)._mutate_add_node()
+#         # Add node to node order list: after the presynaptic node of the split connection
+#         # and before the postsynaptic node of the split connection
+#         if self._node_genes[split_conn.innodeid - 1].type == 'HIDDEN':
+#             mini = self.__node_order.index(split_conn.innodeid) + 1
+#         else:
+#             # Presynaptic node is an input node, not hidden node
+#             mini = 0
+#         if self._node_genes[split_conn.outnodeid - 1].type == 'HIDDEN':
+#             maxi = self.__node_order.index(split_conn.outnodeid)
+#         else:
+#             # Postsynaptic node is an output node, not hidden node
+#             maxi = len(self.__node_order)
+#         self.__node_order.insert(random.randint(mini, maxi), ng.id)
+#         assert(len(self.__node_order) == len([n for n in self.node_genes if n.type == 'HIDDEN']))
+#         return (ng, split_conn)
+end
+
+function mutate_add_connection(ch::Chromosome, g::Global,::FeedForward)
+
+#         # Only for feedforwad networks
+#         num_hidden = len(self.__node_order)
+#         num_output = len(self._node_genes) - self._input_nodes - num_hidden
+
+#         total_possible_conns = (num_hidden+num_output)*(self._input_nodes+num_hidden) - \
+#             sum(range(num_hidden+1))
+
+#         remaining_conns = total_possible_conns - len(self._connection_genes)
+#         # Check if new connection can be added:
+#         if remaining_conns > 0:
+#             n = random.randint(0, remaining_conns - 1)
+#             count = 0
+#             # Count connections
+#             for in_node in (self._node_genes[:self._input_nodes] + self._node_genes[-num_hidden:]):
+#                 for out_node in self._node_genes[self._input_nodes:]:
+#                     if (in_node.id, out_node.id) not in self._connection_genes.keys() and \
+#                         self.__is_connection_feedforward(in_node, out_node):
+#                         # Free connection
+#                         if count == n: # Connection to create
+#                             #weight = random.uniform(-Config.random_range, Config.random_range)
+#                             weight = random.gauss(0,1)
+#                             cg = self._conn_gene_type(in_node.id, out_node.id, weight, True)
+#                             self._connection_genes[cg.key] = cg
+#                             return
+#                         else:
+#                             count += 1
+
+end
+
+function is_connection_feedforward(ch::Chromosome, in_node::NodeGene, out_node::NodeGene)
+
+#         return in_node.type == 'INPUT' or out_node.type == 'OUTPUT' or \
+#             self.__node_order.index(in_node.id) < self.__node_order.index(out_node.id)
+
+#     def add_hidden_nodes(self, num_hidden):
+#         id = len(self._node_genes)+1
+#         for i in range(num_hidden):
+#             node_gene = self._node_gene_type(id,
+#                                           nodetype = 'HIDDEN',
+#                                           activation_type = Config.nn_activation)
+#             self._node_genes.append(node_gene)
+#             self.__node_order.append(node_gene.id)
+#             id += 1
+#             # Connect all input nodes to it
+#             for pre in self._node_genes[:self._input_nodes]:
+#                 weight = random.gauss(0, Config.weight_stdev)
+#                 cg = self._conn_gene_type(pre.id, node_gene.id, weight, True)
+#                 self._connection_genes[cg.key] = cg
+#                 assert self.__is_connection_feedforward(pre, node_gene)
+#             # Connect all previous hidden nodes to it
+#             for pre_id in self.__node_order[:-1]:
+#                 assert pre_id != node_gene.id
+#                 weight = random.gauss(0, Config.weight_stdev)
+#                 cg = self._conn_gene_type(pre_id, node_gene.id, weight, True)
+#                 self._connection_genes[cg.key] = cg
+#             # Connect it to all output nodes
+#             for post in self._node_genes[self._input_nodes:(self._input_nodes + self._output_nodes)]:
+#                 assert post.type == 'OUTPUT'
+#                 weight = random.gauss(0, Config.weight_stdev)
+#                 cg = self._conn_gene_type(node_gene.id, post.id, weight, True)
+#                 self._connection_genes[cg.key] = cg
+#                 assert self.__is_connection_feedforward(node_gene, post)
+end
+
+#----------  End of Mutation  ----------
 
 # compatibility function
 function distance(g::Global, self::Chromosome, other::Chromosome)
@@ -194,7 +294,7 @@ end
 #         return cmp(self.fitness, other.fitness)
 
 function Base.show(io::IO, ch::Chromosome)
-    s = "Nodes:\n"
+    s = "$(ch.node_gene_type) type\nNodes:\n"
     for ng in ch.node_genes
         s = "$(s)\t$(ng)"
     end
@@ -228,12 +328,13 @@ function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64)
             ch.connection_genes[cg.key] = cg
         end
     end
-
 end
+
 function create_unconnected(g::Global)
 
     # Creates a chromosome for an unconnected feedforward network with no hidden nodes.
-    c = Chromosome(g, 0, 0, :NodeGene, :ConnectionGene)
+    c = Chromosome(g, 0, 0, (g.cg.feedforward? FeedForward():Recurrent()), :ConnectionGene)
+
     id = 1
     # Create node genes
     for i = 1:c.inputCnt
@@ -282,106 +383,136 @@ function create_fully_connected(g::Global)
 end
 
 
-# class FFChromosome(Chromosome)
-#     """ A chromosome for feedforward neural networks. Feedforward
-#         topologies are a particular case of Recurrent NNs.
-#     """
-#     def __init__(self, parent1_id, parent2_id, node_gene_type, conn_gene_type):
-#         super(FFChromosome, self).__init__(parent1_id, parent2_id, node_gene_type, conn_gene_type)
-#         self.__node_order = [] # hidden node order (for feedforward networks)
+# type FFChromosome(Chromosome)
+#     # A chromosome for feedforward neural networks. Feedforward
+#     # topologies are a particular case of Recurrent NNs.
+#      id::Int64
+#     inputCnt::Int64
+#     outputCnt::Int64
+#     node_gene_type::Symbol
+#     conn_gene_type::Symbol
+#     connection_genes::Dict{(Int64,Int64),ConnectionGene}
+#     node_genes::Vector{NodeGene}
+#     fitness::Float64
+#     species_id::Int64
+#     parent1_id::Int64
+#     parent2_id::Int64
+#     node_order::Vector{NodeGene}
+#     # a chromosome for general recurrent neural networks.
+#     function FFChromosome(g::Global, parent1_id::Int64, parent2_id::Int64, node_gene_type::Symbol, conn_gene_type::Symbol)
 
-#     node_order = property(lambda self: self.__node_order)
+#         assert(length(child.__node_order) == length([n for n in child.node_genes if n.type == 'HIDDEN']))
+#         new(incChromeId!(g),
+#             g.cg.input_nodes, g.cg.output_nodes,
 
-#     def _inherit_genes(child, parent1, parent2):
-#         super(FFChromosome, child)._inherit_genes(parent1, parent2)
+#             # the type of NodeGene and ConnectionGene the chromosome carries
+#             node_gene_type, conn_gene_type,
 
-#         child.__node_order = parent1.__node_order[:]
+#             # how many genes of the previous type the chromosome has
+#             Dict{(Int64,Int64),ConnectionGene}(), # dictionary of connection genes
+#             [], # empty array of node_genes
+#             0., # stub for fitness function
+#             0, # species_id
 
-#         assert(len(child.__node_order) == len([n for n in child.node_genes if n.type == 'HIDDEN']))
+#             # parents ids: helps in tracking chromosome's genealogy
+#             parent1_id, parent2_id
+#             [] # delineates node order for feedforward networks
+#             )
+#     end
+# end
 
-#     def _mutate_add_node(self):
-#         ng, split_conn = super(FFChromosome, self)._mutate_add_node()
-#         # Add node to node order list: after the presynaptic node of the split connection
-#         # and before the postsynaptic node of the split connection
-#         if self._node_genes[split_conn.innodeid - 1].type == 'HIDDEN':
-#             mini = self.__node_order.index(split_conn.innodeid) + 1
-#         else:
-#             # Presynaptic node is an input node, not hidden node
-#             mini = 0
-#         if self._node_genes[split_conn.outnodeid - 1].type == 'HIDDEN':
-#             maxi = self.__node_order.index(split_conn.outnodeid)
-#         else:
-#             # Postsynaptic node is an output node, not hidden node
-#             maxi = len(self.__node_order)
-#         self.__node_order.insert(random.randint(mini, maxi), ng.id)
-#         assert(len(self.__node_order) == len([n for n in self.node_genes if n.type == 'HIDDEN']))
-#         return (ng, split_conn)
+# function inherit_genes(child, parent1, parent2):
+#     super(FFChromosome, child)._inherit_genes(parent1, parent2)
+#     child.__node_order = parent1.__node_order[:]
+#     assert(len(child.__node_order) == len([n for n in child.node_genes if n.type == 'HIDDEN']))
+# end
 
-#     def _mutate_add_connection(self):
-#         # Only for feedforwad networks
-#         num_hidden = len(self.__node_order)
-#         num_output = len(self._node_genes) - self._input_nodes - num_hidden
+# function mutate_add_node(self)
+# #         ng, split_conn = super(FFChromosome, self)._mutate_add_node()
+# #         # Add node to node order list: after the presynaptic node of the split connection
+# #         # and before the postsynaptic node of the split connection
+# #         if self._node_genes[split_conn.innodeid - 1].type == 'HIDDEN':
+# #             mini = self.__node_order.index(split_conn.innodeid) + 1
+# #         else:
+# #             # Presynaptic node is an input node, not hidden node
+# #             mini = 0
+# #         if self._node_genes[split_conn.outnodeid - 1].type == 'HIDDEN':
+# #             maxi = self.__node_order.index(split_conn.outnodeid)
+# #         else:
+# #             # Postsynaptic node is an output node, not hidden node
+# #             maxi = len(self.__node_order)
+# #         self.__node_order.insert(random.randint(mini, maxi), ng.id)
+# #         assert(len(self.__node_order) == len([n for n in self.node_genes if n.type == 'HIDDEN']))
+# #         return (ng, split_conn)
+# end
 
-#         total_possible_conns = (num_hidden+num_output)*(self._input_nodes+num_hidden) - \
-#             sum(range(num_hidden+1))
+# function mutate_add_connection(self)
+# #         # Only for feedforwad networks
+# #         num_hidden = len(self.__node_order)
+# #         num_output = len(self._node_genes) - self._input_nodes - num_hidden
 
-#         remaining_conns = total_possible_conns - len(self._connection_genes)
-#         # Check if new connection can be added:
-#         if remaining_conns > 0:
-#             n = random.randint(0, remaining_conns - 1)
-#             count = 0
-#             # Count connections
-#             for in_node in (self._node_genes[:self._input_nodes] + self._node_genes[-num_hidden:]):
-#                 for out_node in self._node_genes[self._input_nodes:]:
-#                     if (in_node.id, out_node.id) not in self._connection_genes.keys() and \
-#                         self.__is_connection_feedforward(in_node, out_node):
-#                         # Free connection
-#                         if count == n: # Connection to create
-#                             #weight = random.uniform(-Config.random_range, Config.random_range)
-#                             weight = random.gauss(0,1)
-#                             cg = self._conn_gene_type(in_node.id, out_node.id, weight, True)
-#                             self._connection_genes[cg.key] = cg
-#                             return
-#                         else:
-#                             count += 1
+# #         total_possible_conns = (num_hidden+num_output)*(self._input_nodes+num_hidden) - \
+# #             sum(range(num_hidden+1))
 
-#     def __is_connection_feedforward(self, in_node, out_node):
-#         return in_node.type == 'INPUT' or out_node.type == 'OUTPUT' or \
-#             self.__node_order.index(in_node.id) < self.__node_order.index(out_node.id)
+# #         remaining_conns = total_possible_conns - len(self._connection_genes)
+# #         # Check if new connection can be added:
+# #         if remaining_conns > 0:
+# #             n = random.randint(0, remaining_conns - 1)
+# #             count = 0
+# #             # Count connections
+# #             for in_node in (self._node_genes[:self._input_nodes] + self._node_genes[-num_hidden:]):
+# #                 for out_node in self._node_genes[self._input_nodes:]:
+# #                     if (in_node.id, out_node.id) not in self._connection_genes.keys() and \
+# #                         self.__is_connection_feedforward(in_node, out_node):
+# #                         # Free connection
+# #                         if count == n: # Connection to create
+# #                             #weight = random.uniform(-Config.random_range, Config.random_range)
+# #                             weight = random.gauss(0,1)
+# #                             cg = self._conn_gene_type(in_node.id, out_node.id, weight, True)
+# #                             self._connection_genes[cg.key] = cg
+# #                             return
+# #                         else:
+# #                             count += 1
+# end
 
-#     def add_hidden_nodes(self, num_hidden):
-#         id = len(self._node_genes)+1
-#         for i in range(num_hidden):
-#             node_gene = self._node_gene_type(id,
-#                                           nodetype = 'HIDDEN',
-#                                           activation_type = Config.nn_activation)
-#             self._node_genes.append(node_gene)
-#             self.__node_order.append(node_gene.id)
-#             id += 1
-#             # Connect all input nodes to it
-#             for pre in self._node_genes[:self._input_nodes]:
-#                 weight = random.gauss(0, Config.weight_stdev)
-#                 cg = self._conn_gene_type(pre.id, node_gene.id, weight, True)
-#                 self._connection_genes[cg.key] = cg
-#                 assert self.__is_connection_feedforward(pre, node_gene)
-#             # Connect all previous hidden nodes to it
-#             for pre_id in self.__node_order[:-1]:
-#                 assert pre_id != node_gene.id
-#                 weight = random.gauss(0, Config.weight_stdev)
-#                 cg = self._conn_gene_type(pre_id, node_gene.id, weight, True)
-#                 self._connection_genes[cg.key] = cg
-#             # Connect it to all output nodes
-#             for post in self._node_genes[self._input_nodes:(self._input_nodes + self._output_nodes)]:
-#                 assert post.type == 'OUTPUT'
-#                 weight = random.gauss(0, Config.weight_stdev)
-#                 cg = self._conn_gene_type(node_gene.id, post.id, weight, True)
-#                 self._connection_genes[cg.key] = cg
-#                 assert self.__is_connection_feedforward(node_gene, post)
+# function is_connection_feedforward(self, in_node, out_node)
+# #         return in_node.type == 'INPUT' or out_node.type == 'OUTPUT' or \
+# #             self.__node_order.index(in_node.id) < self.__node_order.index(out_node.id)
 
-#     def __str__(self):
-#         s = super(FFChromosome, self).__str__()
-#         s += '\nNode order: ' + str(self.__node_order)
-#         return s
+# #     def add_hidden_nodes(self, num_hidden):
+# #         id = len(self._node_genes)+1
+# #         for i in range(num_hidden):
+# #             node_gene = self._node_gene_type(id,
+# #                                           nodetype = 'HIDDEN',
+# #                                           activation_type = Config.nn_activation)
+# #             self._node_genes.append(node_gene)
+# #             self.__node_order.append(node_gene.id)
+# #             id += 1
+# #             # Connect all input nodes to it
+# #             for pre in self._node_genes[:self._input_nodes]:
+# #                 weight = random.gauss(0, Config.weight_stdev)
+# #                 cg = self._conn_gene_type(pre.id, node_gene.id, weight, True)
+# #                 self._connection_genes[cg.key] = cg
+# #                 assert self.__is_connection_feedforward(pre, node_gene)
+# #             # Connect all previous hidden nodes to it
+# #             for pre_id in self.__node_order[:-1]:
+# #                 assert pre_id != node_gene.id
+# #                 weight = random.gauss(0, Config.weight_stdev)
+# #                 cg = self._conn_gene_type(pre_id, node_gene.id, weight, True)
+# #                 self._connection_genes[cg.key] = cg
+# #             # Connect it to all output nodes
+# #             for post in self._node_genes[self._input_nodes:(self._input_nodes + self._output_nodes)]:
+# #                 assert post.type == 'OUTPUT'
+# #                 weight = random.gauss(0, Config.weight_stdev)
+# #                 cg = self._conn_gene_type(node_gene.id, post.id, weight, True)
+# #                 self._connection_genes[cg.key] = cg
+# #                 assert self.__is_connection_feedforward(node_gene, post)
+# end
+
+# #     def __str__(self):
+# #         s = super(FFChromosome, self).__str__()
+# #         s += '\nNode order: ' + str(self.__node_order)
+# #         return s
 
 # if __name__ == '__main__':
 #     # Example
