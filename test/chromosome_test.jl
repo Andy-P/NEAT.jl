@@ -69,7 +69,37 @@ child = NEAT.crossover(g, ch1, ch2)
 ch = NEAT.Chromosome(g, 1, 2, NEAT.FeedForward(),:ConnectionGene)
 @test typeof(ch) == NEAT.Chromosome
 @test typeof(ch.node_gene_type) == NEAT.FeedForward
-@test typeof(ch.node_order) == Vector{NEAT.NodeGene}
+@test typeof(ch.node_order) == Vector{Int64}
 @test length(ch.node_order) == 0
+
+g = NEAT.Global(config)
+g.cg.feedforward = true
+ch2 = NEAT.create_fully_connected(g)
+@test typeof(ch2.node_gene_type) == NEAT.FeedForward
+
+ng, cg = NEAT.mutate_add_node!(ch2, g, NEAT.FeedForward())
+@test length(ch2.node_order) == 1
+@test ch2.node_order[1] == ng.id
+
+ng, cg = NEAT.mutate_add_node!(ch2, g, NEAT.FeedForward())
+@test length(ch2.node_order) == 2
+
+ng, cg = NEAT.mutate_add_node!(ch2, g, NEAT.FeedForward())
+@test length(ch2.node_order) == 3
+# IMPORTANT TO DO: Write function to test for cyclical graph recurrence
+
+NEAT.mutate_add_connection!(ch2, g, NEAT.FeedForward())
+@test length(ch2.connection_genes) == 10
+NEAT.mutate_add_connection!(ch2, g, NEAT.FeedForward())
+@test length(ch2.connection_genes) == 11
+
+
+g.cg.feedforward = true
+ch2 = NEAT.create_unconnected(g)
+NEAT.add_hidden_nodes!(ch2, g, 4)
+@test length(ch2.node_order) == 4
+ch2
+
+@test length(ch2.node_order) == 4
 
 
