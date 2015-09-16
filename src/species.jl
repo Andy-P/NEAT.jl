@@ -80,7 +80,7 @@ end
 function reproduce(g::Global,s::Species)
     # Returns a list of 'spawn_amount' new individuals
 
-    offspring = [] # new offspring for this species
+    offspring = Chromosome[] # new offspring for this species
     s.age += 1  # increment species age
 
     @printf("Reproducing species %d with %d members", s.id, length(s))
@@ -96,38 +96,40 @@ function reproduce(g::Global,s::Species)
         # TODO: Wouldn't it be better if we set elitism=2,3,4...
         # depending on the size of each species?
         push!(offspring, ch.subpopulation[1])
-        self.spawn_amount -= 1
+        s.spawn_amount -= 1
     end
 
     survivors = iround(length(s) * g.cg.survival_threshold) # keep a % of the best individuals
     s.subpopulation = survivors > 0? s.subpopulation[1:survivors]: s.subpopulation[1]
 
-#     while(self.spawn_amount > 0):
+    while(s.spawn_amount > 0)
 
-#         self.spawn_amount -= 1
+        s.spawn_amount -= 1
 
-#         if len(self) > 1:
-#             # Selects two parents from the remaining species and produces a single individual
-#             # Stanley selects at random, here we use tournament selection (although it is not
-#             # clear if has any advantages)
-#             parent1 = self.TournamentSelection()
-#             parent2 = self.TournamentSelection()
+        if length(s) > 1
+            # Selects two parents from the remaining species and produces a single individual
+            # Stanley selects at random, here we use tournament selection (although it is not
+            # clear if has any advantages)
+            parent1 = tournamentSelection(s)
+            parent2 = tournamentSelection(s)
 
-#             assert parent1.species_id == parent2.species_id, "Parents has different species id."
-#             child = parent1.crossover(parent2)
-#             offspring.append(child.mutate())
-#         else:
-#             # mutate only
-#             parent1 = self.__subpopulation[0]
-#             # TODO: temporary hack - the child needs a new id (not the father's)
-#             child = parent1.crossover(parent1)
-#             offspring.append(child.mutate())
+            @assert parent1.species_id == parent2.species_id
+            child = crossover(g, parent1, parent2)
+            push!(offspring, child)
+        else
+            # mutate only
+            parent1 = s.subpopulation[1]
+            # TODO: temporary hack - the child needs a new id (not the father's)
+            child = crossover(g, parent1, parent1)
+            push!(offspring, child)
+        end
+    end
 
-#     # reset species (new members will be added again when speciating)
-#     self.__subpopulation = []
+    # reset species (new members will be added again when speciating)
+    s.subpopulation = []
 
-#     # select a new random representant member
-#     self.representant = random.choice(offspring)
+    # select a new random representant member
+    s.representant = offspring[rand(1:length(offspring))]
 
-#     return offspring
+    return offspring
 end
