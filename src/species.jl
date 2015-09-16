@@ -92,19 +92,15 @@ function reproduce(g::Global,s::Species)
 
     sort!(s.subpopulation, by= ch-> ch.fitness, rev=true)
 
-#     if g.cg.elitism
+    if g.cg.elitism
         # TODO: Wouldn't it be better if we set elitism=2,3,4...
         # depending on the size of each species?
-#         offspring.append(self.__subpopulation[0])
-#         self.spawn_amount -= 1
+        push!(offspring, ch.subpopulation[1])
+        self.spawn_amount -= 1
+    end
 
-#     survivors = int(round(len(self)*Config.survival_threshold)) # keep a % of the best individuals
-
-#     if survivors > 0:
-#         self.__subpopulation = self.__subpopulation[:survivors]
-#     else:
-#         # ensure that we have at least one chromosome to reproduce
-#         self.__subpopulation = self.__subpopulation[:1]
+    survivors = iround(length(s) * g.cg.survival_threshold) # keep a % of the best individuals
+    s.subpopulation = survivors > 0? s.subpopulation[1:survivors]: s.subpopulation[1]
 
 #     while(self.spawn_amount > 0):
 
