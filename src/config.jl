@@ -21,7 +21,7 @@ type Config
     prob_mutate_weight::Float64 # dynamic mutation rate (future release)
     weight_mutation_power::Float64
     prob_togglelink::Float64
-    elitism::Float64
+    elitism::Bool
 
     # genotype compatibility
     compatibility_threshold::Float64
@@ -63,7 +63,7 @@ type Config
             float(params["prob_mutate_weight"]),
             float(params["weight_mutation_power"]),
             float(params["prob_togglelink"]),
-            float(params["elitism"]),
+            bool(int(params["elitism"])),
 
             # genotype compatibility
             float(params["compatibility_threshold"]),

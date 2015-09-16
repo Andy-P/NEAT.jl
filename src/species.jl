@@ -1,26 +1,25 @@
-type Species()
+type Species
     # A subpopulation containing similar individiduals
-    id::Int64 # species's id
-    age::Int64                                # species's age
-    subpopulation::Vector{Chromosome}                     # species's individuals
-    push!(subpopulation, first_individual)
-    hasBest = False                        # Does this species has the best individual of the population?
-    spawn_amount = 0
-    no_improvement_age = 0                 # the age species has shown no improvements on average
-    last_avg_fitness = 0
-    representant = first_individual
-
-function Species(g::Global, first_individual, previous_id=0)
+    id::Int64                         # species's id
+    age::Int64                        # species's age
+    subpopulation::Vector{Chromosome} # species's individuals
+    hasBest::Bool                     # Does this species has the best individual of the population?
+    spawn_amount::Int64
+    no_improvement_age::Int64         # the age species has shown no improvements on average
+    last_avg_fitness::Float64
+    representant::Chromosome
+    function Species(g::Global, first_individual::Chromosome, previous_id=0)
         # A species requires at least one individual to come to existence
-    id = previous_id == 0? get_new_id(g):previous_id   # species's id
-    age = 0                                # species's age
-    subpopulation = []                     # species's individuals
-    push!(subpopulation, first_individual)
-    hasBest = False                        # Does this species has the best individual of the population?
-    spawn_amount = 0
-    no_improvement_age = 0                 # the age species has shown no improvements on average
-    last_avg_fitness = 0
-    representant = first_individual
+        id  = previous_id == 0? get_new_id(g):previous_id
+        first_individual.species_id = id
+        new(id,
+            0,     # species's age
+            [first_individual],    # species' individuals
+            false, # hasBest: Does this species has the best individual of the population?
+            0,     # spawn_amount
+            0,     # the age species has shown no improvements on average
+            0.,    # last_avg_fitness
+            first_individual)
     end
 end
 
@@ -29,111 +28,110 @@ function get_new_id(g::Global)
     return g.speciesCnt
 end
 
-#     def add(self, individual):
-#         """ Add a new individual to the species """
-#         # set individual's species id
-#         individual.species_id = self.__id
-#         # add new individual
-#         self.__subpopulation.append(individual)
-#         # choose a new random representant for the species
-#         self.representant = random.choice(self.__subpopulation)
+function add(s::Species, individual::Chromosome)
+    individual.species_id = s.id
+    push!(s.subpopulation, individual)
+    # choose a new random representant for the species
+    s.representant = s.subpopulation[rand(1:length(s.subpopulation))]
+end
 
-#     def __iter__(self):
-#         """ Iterates over individuals """
-#         return iter(self.__subpopulation)
+# Returns the total number of individuals in this species
+Base.length(s::Species) = length(s.subpopulation)
 
-#     def __len__(self):
-#         """ Returns the total number of individuals in this species """
-#         return len(self.__subpopulation)
+function Base.show(io::IO, s::Species)
+    str = @sprintf("   Species %2d   size: %3d   age: %3d   spawn: %3d   ",
+                    s.id, length(s.subpopulation), s.age, s.spawn_amount)
+    str = @sprintf("%6s\n   No improvement: %3d   avg. fitness: %1.8f",
+                    str,s.no_improvement_age, s.last_avg_fitness)
+    @printf(io,"%6s", str)
+end
 
-#     def __str__(self):
-#         s  = "\n   Species %2d   size: %3d   age: %3d   spawn: %3d   " \
-#                 %(self.__id, len(self), self.__age, self.spawn_amount)
-#         s += "\n   No improvement: %3d \t avg. fitness: %1.8f" \
-#                 %(self.no_improvement_age, self.__last_avg_fitness)
-#         return s
+function tournamentSelection(s::Species, k=2)
+    # Tournament selection with size k (default k=2).
+    # randomly select k competitors
+    selected = randperm(length(s.subpopulation))[1:k]
+    chs = s.subpopulation[selected]
+    best = chs[1]
+    for ch in chs # choose best among randomly selected
+        best = ch.fitness > best.fitness? ch :best
+    end
+    return best
+end
 
-#     def TournamentSelection(self, k=2):
-#         """ Tournament selection with size k (default k=2).
-#             Make sure the population has at least k individuals """
-#         random.shuffle(self.__subpopulation)
+function average_fitness(s::Species)
+    # Returns the raw average fitness for this species
+    @assert length(s) > 0
+    sum = 0.0
+    for ch in s.subpopulation
+        sum += ch.fitness
+    end
+    current = sum / length(s)
 
-#         return max(self.__subpopulation[:k])
+    # if no_improvement_age > threshold, species will be removed
+    if current > s.last_avg_fitness
+        s.last_avg_fitness = current
+        s.no_improvement_age = 0
+    else
+        s.no_improvement_age += 1
+    end
+    return current
+end
 
-#     def average_fitness(self):
-#         """ Returns the raw average fitness for this species """
-#         sum = 0.0
-#         for c in self.__subpopulation:
-#             sum += c.fitness
+function reproduce(g::Global,s::Species)
+    # Returns a list of 'spawn_amount' new individuals
 
-#         try:
-#             current = sum/len(self)
-#         except ZeroDivisionError:
-#             print "Species %d, with length %d is empty! Why? " % (self.__id, len(self))
-#         else:  # controls species no improvement age
-#             # if no_improvement_age > threshold, species will be removed
-#             if current > self.__last_avg_fitness:
-#                 self.__last_avg_fitness = current
-#                 self.no_improvement_age = 0
-#             else:
-#                 self.no_improvement_age += 1
+    offspring = [] # new offspring for this species
+    s.age += 1  # increment species age
 
-#             return current
+    @printf("Reproducing species %d with %d members", s.id, length(s))
 
-#     def reproduce(self):
-#         """ Returns a list of 'spawn_amount' new individuals """
+    # this condition is useless since no species with spawn_amount < 0 will
+    # reach this point - at least it shouldn't happen.
+    # assert self.spawn_amount > 0, "Species %d with zero spawn amount!" % (self.__id)
 
-#         offspring = [] # new offspring for this species
-#         self.__age += 1  # increment species age
 
-#         #print "Reproducing species %d with %d members" %(self.id, len(self.__subpopulation))
+    sort!(s.subpopulation, by= ch-> ch.fitness, rev=true)
 
-#         # this condition is useless since no species with spawn_amount < 0 will
-#         # reach this point - at least it shouldn't happen.
-#         assert self.spawn_amount > 0, "Species %d with zero spawn amount!" % (self.__id)
+#     if g.cg.elitism
+        # TODO: Wouldn't it be better if we set elitism=2,3,4...
+        # depending on the size of each species?
+#         offspring.append(self.__subpopulation[0])
+#         self.spawn_amount -= 1
 
-#         self.__subpopulation.sort()     # sort species's members by their fitness
-#         self.__subpopulation.reverse()  # best members first
+#     survivors = int(round(len(self)*Config.survival_threshold)) # keep a % of the best individuals
 
-#         if Config.elitism:
-#             # TODO: Wouldn't it be better if we set elitism=2,3,4...
-#             # depending on the size of each species?
-#             offspring.append(self.__subpopulation[0])
-#             self.spawn_amount -= 1
+#     if survivors > 0:
+#         self.__subpopulation = self.__subpopulation[:survivors]
+#     else:
+#         # ensure that we have at least one chromosome to reproduce
+#         self.__subpopulation = self.__subpopulation[:1]
 
-#         survivors = int(round(len(self)*Config.survival_threshold)) # keep a % of the best individuals
+#     while(self.spawn_amount > 0):
 
-#         if survivors > 0:
-#             self.__subpopulation = self.__subpopulation[:survivors]
+#         self.spawn_amount -= 1
+
+#         if len(self) > 1:
+#             # Selects two parents from the remaining species and produces a single individual
+#             # Stanley selects at random, here we use tournament selection (although it is not
+#             # clear if has any advantages)
+#             parent1 = self.TournamentSelection()
+#             parent2 = self.TournamentSelection()
+
+#             assert parent1.species_id == parent2.species_id, "Parents has different species id."
+#             child = parent1.crossover(parent2)
+#             offspring.append(child.mutate())
 #         else:
-#             # ensure that we have at least one chromosome to reproduce
-#             self.__subpopulation = self.__subpopulation[:1]
+#             # mutate only
+#             parent1 = self.__subpopulation[0]
+#             # TODO: temporary hack - the child needs a new id (not the father's)
+#             child = parent1.crossover(parent1)
+#             offspring.append(child.mutate())
 
-#         while(self.spawn_amount > 0):
+#     # reset species (new members will be added again when speciating)
+#     self.__subpopulation = []
 
-#             self.spawn_amount -= 1
+#     # select a new random representant member
+#     self.representant = random.choice(offspring)
 
-#             if len(self) > 1:
-#                 # Selects two parents from the remaining species and produces a single individual
-#                 # Stanley selects at random, here we use tournament selection (although it is not
-#                 # clear if has any advantages)
-#                 parent1 = self.TournamentSelection()
-#                 parent2 = self.TournamentSelection()
-
-#                 assert parent1.species_id == parent2.species_id, "Parents has different species id."
-#                 child = parent1.crossover(parent2)
-#                 offspring.append(child.mutate())
-#             else:
-#                 # mutate only
-#                 parent1 = self.__subpopulation[0]
-#                 # TODO: temporary hack - the child needs a new id (not the father's)
-#                 child = parent1.crossover(parent1)
-#                 offspring.append(child.mutate())
-
-#         # reset species (new members will be added again when speciating)
-#         self.__subpopulation = []
-
-#         # select a new random representant member
-#         self.representant = random.choice(offspring)
-
-#         return offspring
+#     return offspring
+end

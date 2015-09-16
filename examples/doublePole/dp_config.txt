@@ -20,7 +20,7 @@ bias_mutation_power   = 0.5
 prob_mutate_weight    = 0.8
 weight_mutation_power = 1.8
 prob_togglelink       = 0.05
-elitism               = 0.
+elitism               = 0
 
 # [genotype compatibility]
 compatibility_threshold = 5.5
