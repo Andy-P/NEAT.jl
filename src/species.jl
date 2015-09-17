@@ -89,7 +89,6 @@ function reproduce(g::Global,s::Species)
     # reach this point - at least it shouldn't happen.
     # assert self.spawn_amount > 0, "Species %d with zero spawn amount!" % (self.__id)
 
-
     sort!(s.subpopulation, by= ch-> ch.fitness, rev=true)
 
     if g.cg.elitism

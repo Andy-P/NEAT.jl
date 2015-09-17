@@ -96,10 +96,7 @@ NEAT.mutate_add_connection!(ch2, g, NEAT.FeedForward())
 
 g.cg.feedforward = true
 ch2 = NEAT.create_unconnected(g)
-NEAT.add_hidden_nodes!(ch2, g, 4)
-@test length(ch2.node_order) == 4
-ch2
-
+NEAT.add_hidden_nodes!(g,ch2, 4,NEAT.FeedForward())
 @test length(ch2.node_order) == 4
 
 

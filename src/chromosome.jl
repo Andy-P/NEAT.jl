@@ -281,11 +281,11 @@ function Base.show(io::IO, ch::Chromosome)
     for (innov, (inId ,outId)) in ord
         s = "$(s)\n\t$(ch.connection_genes[(inId ,outId)])"
     end
-    @printf(io,"%6s", s)
+    @printf(io,"\n%6s", s)
     return
 end
 
-function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64)
+function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64, ::Recurrent)
 
     id = length(ch.node_genes)+1
     for i in 1:num_hidden
@@ -295,13 +295,13 @@ function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64)
         # Connect all nodes to it
         for pre in ch.node_genes
             weight = randn() * g.cg.weight_stdev
-            cg = ConnectionGene(pre.id, node_gene.id, weight)
+            cg = ConnectionGene(g, pre.id, node_gene.id, weight)
             ch.connection_genes[cg.key] = cg
         end
         # Connect it to all nodes except input nodes
-        for post in ch.node_genes[self._input_nodes+1:end]
+        for post in ch.node_genes[ch.inputCnt+1:end]
             weight = randn() * g.cg.weight_stdev
-            cg = ConnectionGene(node_gene.id, post.id, weight)
+            cg = ConnectionGene(g, node_gene.id, post.id, weight)
             ch.connection_genes[cg.key] = cg
         end
     end
@@ -359,7 +359,7 @@ function create_fully_connected(g::Global)
     return ch
 end
 
-function add_hidden_nodes!(ch::Chromosome, g::Global, num_hidden::Int64)
+function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64, ::FeedForward)
     id = length(ch.node_genes)+1
     for i in 1:num_hidden
         node_gene = NodeGene(id, :HIDDEN, 0., 1., g.cg.nn_activation)

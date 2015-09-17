@@ -19,9 +19,8 @@ end
 
 include("genome.jl")
 include("chromosome.jl")
-
-# include("population.jl")
 include("species.jl")
+include("population.jl")
 
 # export Input, Output, Hidden
 
