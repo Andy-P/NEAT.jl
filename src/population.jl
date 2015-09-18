@@ -144,22 +144,22 @@ function tournamentSelection(p::Population, k=2)
 end
 
 function log_species(p::Population)
-#     # Logging species data for visualizing speciation
-#     higher = max([s.id for s in p.species])
-#     temp = []
-#     for i in 1:higher+1
-#         found_specie = false
-#         for s in self.__species
-#             if i == s.id
-#                 temp.append(len(s))
-#                 found_specie = true
-#                 break
-#             end
-#         end
+    # Logging species data for visualizing speciation
+    higher = max([s.id for s in p.species])
+    temp = []
+    for i in 1:higher+1
+        found_species = false
+        for s in self.__species
+            if i == s.id
+                temp.append(len(s))
+                found_specie = true
+                break
+            end
+        end
 
-#         if !found_specie
-#             temp.append(0)
-#     p.species_log.append(temp)
+        if !found_species
+            temp.append(0)
+    p.species_log.append(temp)
 end
 
 function population_diversity(p::Population)
@@ -182,7 +182,7 @@ function population_diversity(p::Population)
     return num_nodes/total, num_conns/total, avg_weights/total
 end
 
-function epoch(p::Population, n::Int64, report::Bool=true, save_best::Bool=false,
+function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best::Bool=false,
                checkpoint_interval::Int64=15, checkpoint_generation=0)
     #= Runs NEAT's genetic algorithm for n epochs.
 
@@ -242,58 +242,47 @@ function epoch(p::Population, n::Int64, report::Bool=true, save_best::Bool=false
 
         # Remove stagnated species and its members (except if it has the best chromosome)
         for s in p.species
-            if s.no_improvement_age > Config.max_stagnation
-                if !s.hasBest
-                    if report @printf("\n   Species %2d (with %2d individuals) is stagnated: removing it",s.id, length(s)) end
+            if s.no_improvement_age > g.cg.max_stagnation
+                if !s.hasBest || s.no_improvement_age > 2*Config.max_stagnation
+                    if report @printf("\n   Species %2d age %2s (with %2d individuals) is stagnated: removing it",
+                                      s.id, s.age, length(s)) end
                     # removing species
-#                     p.species.remove(s)
+                    deleteat!(p.species,findfirst(p.species,s))
                     # removing all the species' members
                     #TODO: can be optimized!
-#                     for c in p.population[:]
-#                         if c.species_id == s.id:
-#                             self.__population.remove(c)
+                    for ch in p.population
+                        if ch.species_id == ch.id deleteat!(p.population,findfirst(p.population,ch)) end
+                    end
                 end
             end
         end
 
-        # Remove "super-stagnated" species (even if it has the best chromosome)
-        # It is not clear if it really avoids local minima
-#         for s in self.__species[:]:
-#             if s.no_improvement_age > 2*Config.max_stagnation:
-#                 if report:
-#                     print "\n   Species %2d (with %2d individuals) is super-stagnated: removing it" \
-#                             %(s.id, len(s))
-#                 # removing species
-#                 self.__species.remove(s)
-#                 # removing all the species' members
-#                 #TODO: can be optimized!
-#                 for c in self.__population[:]:
-#                     if c.species_id == s.id:
-#                         self.__population.remove(c)
-
         # Compute spawn levels for each remaining species
-#         self.__compute_spawn_levels()
+        compute_spawn_levels(g, p)
 
-#         # Removing species with spawn amount = 0
-#         for s in self.__species[:]:
-#             # This rarely happens
-#             if s.spawn_amount == 0:
-#                 if report:
-#                     print '   Species %2d age %2s removed: produced no offspring' %(s.id, s.age)
-#                 for c in self.__population[:]:
-#                     if c.species_id == s.id:
-#                         self.__population.remove(c)
-#                             #self.remove(c)
-#                 self.__species.remove(s)
+        # Removing species with spawn amount = 0
+        for s in p.species
+            # This rarely happens
+            if s.spawn_amount == 0
+                if report @printf("\n   Species %2d age %2s removed: produced no offspring",s.id, s,age) end
+                # removing species
+                deleteat!(p.species,findfirst(p.species,s))
+                # removing all the species' members
+                #TODO: can be optimized!
+                for ch in p.population
+                    if ch.species_id == ch.id deleteat!(p.population,findfirst(p.population,ch)) end
+                end
+            end
 
-#         # Logging speciation stats
-#         self.__log_species()
+        # Logging speciation stats
+        p.log_species()
 
-#         if report:
+#         if report
 #             #print 'Poluation size: %d \t Divirsity: %s' %(len(self), self.__population_diversity())
 #             print 'Population\'s average fitness: %3.5f stdev: %3.5f' %(self.__avg_fitness[-1], self.stdeviation())
 #             print 'Best fitness: %2.12s - size: %s - species %s - id %s' \
 #                 %(best.fitness, best.size(), best.species_id, best.id)
+#         end
 
 #             # print some "debugging" information
 #             print 'Species length: %d totalizing %d individuals' \
