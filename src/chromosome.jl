@@ -47,14 +47,15 @@ end
 
 function mutate(ch::Chromosome, g::Global)
     # Mutates the chromosome
-    if rand() < Config.prob_addnode
+    if rand() < g.cg.prob_addnode
         mutate_add_node!(ch, g, ch.node_gene_type)
-    elseif rand() < Config.prob_addconn
+    elseif rand() < g.cg.prob_addconn
         mutate_add_connection!(ch, g, ch.node_gene_type)
     else
-        map(cg -> mutate(cg, g.cg), ch.connection_genes) # mutate weights
-        map(ng -> mutate(ng, g.cg), ch.node_genes[ch.inputCnt+1:end]) # mutate bias, response, and etc...
+        map(cg -> mutate!(cg[2], g.cg), ch.connection_genes) # mutate weights
+        map(ng -> mutate!(ng, g.cg), ch.node_genes[ch.inputCnt+1:end]) # mutate bias, response, and etc...
     end
+    return ch
 end
 
 

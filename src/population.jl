@@ -4,10 +4,10 @@ type Population
     population::Vector{Chromosome}
     popsize::Int64
     species::Vector{Species}
-    species_history
+    species_history::Vector{Array{Int64,1}}
     generation::Int64
     avg_fitness::Vector{Float64}
-    best_fitness::Vector{Float64}
+    best_fitness::Vector{Chromosome}
     evaluate::Function # Evaluates population. Override this method in your experiments
     function Population(g::Global, checkpoint::String="")
 
@@ -29,12 +29,13 @@ type Population
                 push!(population, ch)
             end
 
-            new(population, popsize,
-                Species[],[], # currently living species and species history
-                -1, # generation
-                Float64[], # avg_fitness
-                Float64[], # best_fitness
-                x->0) # Evaluates population. Override this method in your experiments
+            p = new(population, popsize,
+                    Species[],Array{Int64,1}[], # currently living species and species history
+                    -1, # generation
+                    Float64[], # avg_fitness
+                    Chromosome[]); # best_fitness
+            p.evaluate = (f::Function) -> f(p.population); # Evaluates population. Override this method in your experiments
+            p
         end
     end
 end
@@ -145,21 +146,10 @@ end
 
 function log_species(p::Population)
     # Logging species data for visualizing speciation
-    higher = max([s.id for s in p.species])
-    temp = []
-    for i in 1:higher+1
-        found_species = false
-        for s in self.__species
-            if i == s.id
-                temp.append(len(s))
-                found_specie = true
-                break
-            end
-        end
-
-        if !found_species
-            temp.append(0)
-    p.species_log.append(temp)
+    specById = sort(p.species, by=s->s.id)
+    spec_size = zeros(Int64,specById[end].id+1)
+    map(s->spec_size[s.id]=length(s) , specById)
+    push!(p.species_history,spec_size)
 end
 
 function population_diversity(p::Population)
@@ -201,18 +191,17 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
         if report println(" ****** Running generation $(p.generation) ******") end
 
         # Evaluate individuals
-#         evaluate(p)
+        p.evaluate(p.population)
         # Speciates the population
-#         speciate(p,report)
-
-        # Current generation's best chromosome
-        push!(p.best_fitness, maximum(map(ch-> ch.fitness, p.population)))
+        speciate(g, p, report)
 
         # Current population's average fitness
-        push!(p.avg_fitness, average_fitness(p.population))
+        push!(p.avg_fitness, average_fitness(p))
 
-        # Print some statistics
-        best = p.best_fitness[end]
+        # Current generation's best chromosome
+        bestfit, bestidx = findmax(map(ch-> ch.fitness, p.population))
+        best = p.population[bestidx]
+        push!(p.best_fitness, best)
 
         # Which species has the best chromosome?
         for s in p.species
@@ -236,7 +225,7 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
 
         #-----------------------------------------
         # Prints chromosome's parents id:  {dad_id, mon_id} -> child_id
-        map(ch-> @printf("{%3d; %3d} -> %3d",ch.parent1_id, ch.parent2_id, ch.id),p.population)
+        map(ch-> @printf("{%3d; %3d} -> %3d\n",ch.parent1_id, ch.parent2_id, ch.id),p.population)
         #-----------------------------------------
 
 
@@ -264,7 +253,7 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
         for s in p.species
             # This rarely happens
             if s.spawn_amount == 0
-                if report @printf("\n   Species %2d age %2s removed: produced no offspring",s.id, s,age) end
+                if report @printf("\n   Species %2d age %2s removed: produced no offspring",s.id, s.age) end
                 # removing species
                 deleteat!(p.species,findfirst(p.species,s))
                 # removing all the species' members
@@ -273,12 +262,12 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
                     if ch.species_id == ch.id deleteat!(p.population,findfirst(p.population,ch)) end
                 end
             end
+        end
 
         # Logging speciation stats
-        p.log_species()
+        log_species(p)
 
 #         if report
-#             #print 'Poluation size: %d \t Divirsity: %s' %(len(self), self.__population_diversity())
 #             print 'Population\'s average fitness: %3.5f stdev: %3.5f' %(self.__avg_fitness[-1], self.stdeviation())
 #             print 'Best fitness: %2.12s - size: %s - species %s - id %s' \
 #                 %(best.fitness, best.size(), best.species_id, best.id)
@@ -296,57 +285,102 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
 #             #for s in self.__species:
 #             #    print s
 
-#         # -------------------------- Producing new offspring -------------------------- #
-#         new_population = [] # next generation's population
+        # -------------------------- Producing new offspring -------------------------- #
+        new_population = Chromosome[] # next generation's population
 
-#         # Spawning new population
-#         for s in self.__species:
-#             new_population.extend(s.reproduce())
+        # Spawning new population
+        for s in p.species
+            new_population = vcat(new_population,reproduce(g, s))
+        end
 
-#         # ----------------------------#
-#         # Controls under or overflow  #
-#         # ----------------------------#
-#         fill = (self.__popsize) - len(new_population)
-#         if fill < 0: # overflow
-#             if report: print '   Removing %d excess individual(s) from the new population' %-fill
-#             # TODO: This is dangerous! I can't remove a species' representant!
-#             new_population = new_population[:fill] # Removing the last added members
+        # ----------------------------#
+        # Controls under or overflow  #
+        # ----------------------------#
+        fill = p.popsize - length(new_population)
+        if fill < 0 # overflow
+            if report println("   Removing $(abs(fill)) excess individual(s) from the new population") end
+            # TODO: This is dangerous! I can't remove a species' representant!
+            new_population = new_population[1:end+fill] # Removing the last added members
+        end
 
-#         if fill > 0: # underflow
-#             if report: print '   Producing %d more individual(s) to fill up the new population' %fill
+        if fill > 0 # underflow
+            if report println("      Producing $fill more individual(s) to fill up the new population") end
 
-#             # TODO:
-#             # what about producing new individuals instead of reproducing?
-#             # increasing diversity from time to time might help
-#             while fill > 0:
-#                 # Selects a random chromosome from population
-#                 parent1 = random.choice(self.__population)
-#                 # Search for a mate within the same species
-#                 found = False
-#                 for c in self:
-#                     # what if c is parent1 itself?
-#                     if c.species_id == parent1.species_id:
-#                         child = parent1.crossover(c)
-#                         new_population.append(child.mutate())
-#                         found = True
-#                         break
-#                 if not found:
-#                     # If no mate was found, just mutate it
-#                     new_population.append(parent1.mutate())
-#                 #new_population.append(chromosome.FFChromosome.create_fully_connected())
-#                 fill -= 1
+            # TODO:
+            # what about producing new individuals instead of reproducing?
+            # increasing diversity from time to time might help
+            while fill > 0
+                # Selects a random chromosome from population
+                parent1 = p.population[rand(1:length(p.population))]
+                # Search for a mate within the same species
+                found = false
+                for parent2 in p.population
+                    if parent2.species_id == parent1.species_id && parent2.id != parent1.id
 
-#         assert self.__popsize == len(new_population), 'Different population sizes!'
-#         # Updates current population
-#         self.__population = new_population[:]
+                        child = mutate(crossover(g, parent1, parent2),g)
+                        push!(new_population,child)
+                        found = true
+                        break
+                    end
+                end
+                if !found
+                    push!(new_population, mutate(deepcopy(parent1),g)) # will irreversibly mutate parent. ok?
+                end # If no mate was found, just mutate it
 
-#         if checkpoint_interval is not None and time.time() > t0 + 60*checkpoint_interval:
-#             self.__create_checkpoint(report)
-#             t0 = time.time() # updates the counter
-#         elif checkpoint_generation is not None and self.__generation % checkpoint_generation == 0:
-#             self.__create_checkpoint(report)
-          end
+                fill -= 1
+            end
+        end
+
+        @assert p.popsize == length(new_population) # Different population sizes!
+
+        # Updates current population
+        p.population = new_population
+
+        if time() > t0 + 60 * checkpoint_interval
+            create_checkpoint(p,report)
+            t0 = time() # updates the counter
+        elseif  checkpoint_generation != 0 && p.generation % checkpoint_generation == 0
+            create_checkpoint(p,report)
+        end
+    end
 end
+
+function resume_checkpoint(checkpoint)
+    # Resumes the simulation from a previous saved point.
+    # try:
+    #     #file = open(checkpoint)
+    #     file = gzip.open(checkpoint)
+    # except IOError:
+    #     raise
+    # print 'Resuming from a previous point: %s' %checkpoint
+    # # when unpickling __init__ is not called again
+    # previous_pop = pickle.load(file)
+    # self.__dict__ = previous_pop.__dict__
+
+    # print 'Loading random state'
+    # rstate = pickle.load(file)
+    # random.setstate(rstate)
+    # #random.jumpahead(1)
+    # file.close()
+end
+
+function create_checkpoint(p::Population, report)
+        # Saves the current simulation state.
+        # from time import strftime
+        # get current time
+        # date = strftime("%Y_%m_%d_%Hh%Mm%Ss")
+        # if report print 'Creating checkpoint file at generation: %d' %self.__generation end
+
+        # # dumps 'self'
+        # #file = open('checkpoint_'+str(self.__generation), 'w')
+        # file = gzip.open('checkpoint_'+str(self.__generation), 'w', compresslevel = 5)
+        # # dumps the population
+        # pickle.dump(self, file, protocol=2)
+        # # dumps the current random state
+        # pickle.dump(random.getstate(), file, protocol=2)
+        # file.close()
+end
+
 # if __name__ ==  '__main__' :
 
 #     # sample fitness function
@@ -361,39 +395,4 @@ end
 #     pop = Population()
 #     # runs the simulation for 250 epochs
 #     pop.epoch(250)
-
-#     def __resume_checkpoint(self, checkpoint):
-#         """ Resumes the simulation from a previous saved point. """
-#         try:
-#             #file = open(checkpoint)
-#             file = gzip.open(checkpoint)
-#         except IOError:
-#             raise
-#         print 'Resuming from a previous point: %s' %checkpoint
-#         # when unpickling __init__ is not called again
-#         previous_pop = pickle.load(file)
-#         self.__dict__ = previous_pop.__dict__
-
-#         print 'Loading random state'
-#         rstate = pickle.load(file)
-#         random.setstate(rstate)
-#         #random.jumpahead(1)
-#         file.close()
-
-#     def __create_checkpoint(self, report):
-#         """ Saves the current simulation state. """
-#         #from time import strftime
-#         # get current time
-#         #date = strftime("%Y_%m_%d_%Hh%Mm%Ss")
-#         if report:
-#             print 'Creating checkpoint file at generation: %d' %self.__generation
-
-#         # dumps 'self'
-#         #file = open('checkpoint_'+str(self.__generation), 'w')
-#         file = gzip.open('checkpoint_'+str(self.__generation), 'w', compresslevel = 5)
-#         # dumps the population
-#         pickle.dump(self, file, protocol=2)
-#         # dumps the current random state
-#         pickle.dump(random.getstate(), file, protocol=2)
-#         file.close()
 

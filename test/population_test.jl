@@ -42,9 +42,15 @@ p = NEAT.Population(g)
 map(x->NEAT.remove(p, p.population[1]), 1:5)
 @test length(p.population) == g.cg.pop_size - 5
 
+g = NEAT.Global(config)
 p = NEAT.Population(g)
 map(ch->ch.fitness = rand(), p.population)
 NEAT.speciate(g, p, true)
 NEAT.compute_spawn_levels(g, p)
 totalSpawns = sum([s.spawn_amount for s in p.species])
 @test length(p.population)-1 <= totalSpawns <= length(p.population)+1
+
+g = NEAT.Global(config)
+p = NEAT.Population(g)
+p.evaluate = (chs)->map(ch->ch.fitness=rand(), chs)
+NEAT.epoch(g, p, 1, true, false, 15, 0)

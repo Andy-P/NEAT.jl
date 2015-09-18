@@ -83,7 +83,7 @@ function reproduce(g::Global,s::Species)
     offspring = Chromosome[] # new offspring for this species
     s.age += 1  # increment species age
 
-    @printf("Reproducing species %d with %d members", s.id, length(s))
+    @printf("Reproducing species %d with %d members\n", s.id, length(s))
 
     # this condition is useless since no species with spawn_amount < 0 will
     # reach this point - at least it shouldn't happen.
@@ -98,8 +98,9 @@ function reproduce(g::Global,s::Species)
         s.spawn_amount -= 1
     end
 
-    survivors = iround(length(s) * g.cg.survival_threshold) # keep a % of the best individuals
-    s.subpopulation = survivors > 0? s.subpopulation[1:survivors]: s.subpopulation[1]
+    survivors = ifloor(length(s) * g.cg.survival_threshold) # keep a % of the best individuals
+#     println("survivors = $survivors $(length(s))")
+    s.subpopulation = survivors > 0? s.subpopulation[1:survivors]: [s.subpopulation[1]]
 
     while(s.spawn_amount > 0)
 
