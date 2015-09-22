@@ -70,12 +70,16 @@ function speciate(g::Global, p::Population, report::Bool)
     # python technical note:
     # we need a "working copy" list when removing elements while looping
     # otherwise we might end up having sync issues
+    toDelete = falses(length(p.species))
+    keep = map(s->length(s)==0?false:true,p.species)
+    p.species = p.species[keep]
     for s in p.species
         # this happens when no chromosomes are compatible with the species
         if length(s) == 0
             if report println("Removing species $(s.id) for being empty") end
             # remove empty species
-            deleteat!(p.species,findfirst(p.species,s))
+            delete!(p.species,s)
+#             deleteat!(p.species,findfirst(p.species,s))
         end
     end
 
@@ -86,7 +90,7 @@ end
 function set_compatibility_threshold(g::Global, p::Population)
     # ntrols compatibility threshold
     if length(p.species) > g.cg.species_size
-        g.cg.compatibility_threshold += g.cg..compatibility_change
+        g.cg.compatibility_threshold += g.cg.compatibility_change
     elseif length(p.species) < g.cg.species_size
         if g.cg.compatibility_threshold > g.cg.compatibility_change
             g.cg.compatibility_threshold -= g.cg.compatibility_change
@@ -218,21 +222,22 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
 #             file.close()
 #               end
 
-#         # Stops the simulation
-#         if best.fitness > Config.max_fitness_threshold:
-#             print '\nBest individual found in epoch %s - complexity: %s' %(self.__generation, best.size())
-#             break
+        # Stops the simulation
+        if best.fitness > g.cg.max_fitness_threshold
+            @printf("\nBest individual found in epoch %s - complexity: %s", p.generation, size(best))
+        end
 
         #-----------------------------------------
         # Prints chromosome's parents id:  {dad_id, mon_id} -> child_id
-        map(ch-> @printf("{%3d; %3d} -> %3d\n",ch.parent1_id, ch.parent2_id, ch.id),p.population)
+        map(ch-> @printf("{%3d; %3d} -> %3d   Nodes %3d   Connections %3d\n",
+                         ch.parent1_id, ch.parent2_id, ch.id, size(ch)[1], size(ch)[2]), p.population)
         #-----------------------------------------
 
 
         # Remove stagnated species and its members (except if it has the best chromosome)
         for s in p.species
             if s.no_improvement_age > g.cg.max_stagnation
-                if !s.hasBest || s.no_improvement_age > 2*Config.max_stagnation
+                if !s.hasBest || s.no_improvement_age > 2 * g.cg.max_stagnation
                     if report @printf("\n   Species %2d age %2s (with %2d individuals) is stagnated: removing it",
                                       s.id, s.age, length(s)) end
                     # removing species
@@ -298,13 +303,13 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
         # ----------------------------#
         fill = p.popsize - length(new_population)
         if fill < 0 # overflow
-            if report println("   Removing $(abs(fill)) excess individual(s) from the new population") end
-            # TODO: This is dangerous! I can't remove a species' representant!
+            if report println("\n   Removing $(abs(fill)) excess individual(s) from the new population") end
+            # TODO: This is dangerous? I can't remove a species' representant!
             new_population = new_population[1:end+fill] # Removing the last added members
         end
 
         if fill > 0 # underflow
-            if report println("      Producing $fill more individual(s) to fill up the new population") end
+            if report println("\n   Producing $fill more individual(s) to fill up the new population") end
 
             # TODO:
             # what about producing new individuals instead of reproducing?
@@ -316,7 +321,6 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
                 found = false
                 for parent2 in p.population
                     if parent2.species_id == parent1.species_id && parent2.id != parent1.id
-
                         child = mutate(crossover(g, parent1, parent2),g)
                         push!(new_population,child)
                         found = true

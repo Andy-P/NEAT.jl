@@ -83,11 +83,11 @@ function reproduce(g::Global,s::Species)
     offspring = Chromosome[] # new offspring for this species
     s.age += 1  # increment species age
 
-    @printf("Reproducing species %d with %d members\n", s.id, length(s))
+#     @printf("Reproducing species %d with %d members\n", s.id, length(s))
 
     # this condition is useless since no species with spawn_amount < 0 will
     # reach this point - at least it shouldn't happen.
-    # assert self.spawn_amount > 0, "Species %d with zero spawn amount!" % (self.__id)
+    @assert s.spawn_amount > 0
 
     sort!(s.subpopulation, by= ch-> ch.fitness, rev=true)
 
@@ -115,7 +115,7 @@ function reproduce(g::Global,s::Species)
 
             @assert parent1.species_id == parent2.species_id
             child = crossover(g, parent1, parent2)
-            push!(offspring, child)
+            push!(offspring, mutate(child,g))
         else
             # mutate only
             parent1 = s.subpopulation[1]
