@@ -1,9 +1,6 @@
-# Temporary workaround - default settings
-#node_gene_type = genome.NodeGene
-# conn_gene_type = genome.ConnectionGene
 abstract ChromoType
-type Recurrent   <: ChromoType end;
-type FeedForward <: ChromoType end;
+type Recurrent   <: ChromoType end
+type FeedForward <: ChromoType end
 
 type Chromosome
     id::Int64
@@ -72,6 +69,7 @@ function crossover(g::Global, self::Chromosome, other::Chromosome)
     child = Chromosome(g, self.id, other.id, self.node_gene_type, self.conn_gene_type)
     inherit_genes!(g, child ,parent1, parent2)
     child.species_id = parent1.species_id
+    child.fitness = parent1.fitness
     #child._input_nodes = parent1._input_nodes
 
     return child
@@ -290,7 +288,7 @@ function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64, ::Recur
 
     id = length(ch.node_genes)+1
     for i in 1:num_hidden
-        node_gene = NodeGene(id, :HIDDEN)
+        node_gene = NodeGene(id, :HIDDEN, 0., 1., g.cg.nn_activation)
         push!(ch.node_genes, node_gene)
         id += 1
         # Connect all nodes to it

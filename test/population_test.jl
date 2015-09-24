@@ -53,6 +53,5 @@ totalSpawns = sum([s.spawn_amount for s in p.species])
 g = NEAT.Global(config)
 g.cg.prob_addnode = 0.5
 p = NEAT.Population(g)
-p.evaluate = (chs)->map(ch->ch.fitness=rand()+ch.fitness, chs)
-@time NEAT.epoch(g, p, 1, true, false, 15, 0)
-
+p.evaluate = (chs)->map(ch->ch.fitness=max(0,randn()*0.3+ch.fitness*0.7), chs)
+@time NEAT.epoch(g, p, 1, true)

@@ -1,42 +1,50 @@
-type FeedForward end
-fforward = FeedForward()
 
-type Recurrent end
-recurrent = Recurrent()
+import Base.tanh
+sigm(x::Float64, γ::Float64=1.) = 1.0/(1.0 + exp(-x*γ))
+tanh(x::Real, γ::Real) = (exp(2x*γ)-1) / (exp(2x*γ)+1)
+relu(x::Real) = max(zero(eltype(x)),x)
 
-sigmoid(x::Float64) = 1.0/(1.0 + math.exp(-x))
-sigmoid(x::Float64, response::Float64) = 1.0/(1.0 + math.exp(-x*response))
+# type Synapse
+#     source::Neuron
+#     destination::Neuron
+#     weight::Float64
+#     Synapse(source::Neuron, destination::Neuron, weight::Float64) = new(source, destination, weight)
+# end
 
-
+# incoming(s::Synapse) = s.weight * s.source
 type Synapse
-    source::Int64
-    destination::Int64
+    source
+    destination
     weight::Float64
-    Synapse(source::Int64, destination::Int64, weight::Float64) = new(source, destination, weight)
+    Synapse(source, destination, weight::Float64) = new(source, destination, weight)
 end
 
 incoming(s::Synapse) = s.weight * s.source
 
-#     def __repr__(self):
-#         return '%s -> %s -> %s' %(self._source._id, self._weight, self._destination._id)
+function Base.show(io::IO, s::Synapse)
+    @printf(io,"%d -> %3.5f -> %d\n", s.source.id, s.weight, s.destination.id)
+end
 
 type Neuron
     id::Int64
     synapses::Vector{Synapse}
     bias::Float64
     nType::Symbol       # [:INPUT, :OUTPUT, :HIDDEN]
-    activation::Function  # [:sigm, :tahn, :relu]
+    activation::Function  # [:sigm, :tanh, :relu]
     response::Float64   # default = 4.924273 (Stanley, p. 146)
     output::Float64     # for recurrent networks all neurons must have an "initial state"
-    function Neuron(neurontype::Symbol, id::Int64, bias::Float64=0., activation::Symbol=:sigm,response::Float64=1.)
-        new(id,[],bias, neurontype, x->sigmoid(x), response,0)
+    function Neuron(neurontype::Symbol, id::Int64, bias::Float64=0., activation::Symbol=:sigm, γ::Float64=1.)
+        f = activation ==:sigm?  x->sigm(x,γ):activation ==:tanh? x->tanh(x,γ):x->relu(x)
+        new(id,[],bias, neurontype, f, γ, 0.)
     end
 end
+
+
 
 function activate(n::Neuron)
 #         "Activates the neuron"
 #         assert self._type is not 'INPUT'
-        return n.activation(updateActivation(n) + n.bias)
+        return n.activation(updateActivation!(n) + n.bias)
 end
 
 function updateActivation!(n::Neuron)
@@ -62,8 +70,10 @@ type Network
     neurons::Vector{Neuron}
     synapses::Vector{Synapse}
     numInputs::Int64
-    Network(numInputs::Int64) = new([],[],　numInputs)
-    Network(neurons::Vector{Neuron},synapses::Vector{Synapse},numInputs::Int64) = new(neurons,synapses,numInputs)
+    nntype::ChromoType
+    Network(numInputs::Int64) = new([],[], numInputs, Recurrent())
+    Network(neurons::Vector{Neuron}, synapses::Vector{Synapse}, numInputs::Int64, nntype::ChromoType) =
+        new(neurons, synapses, numInputs, nntype)
 end
 
 addNeuron(network::Network, neuron::Neuron) = push!(network.neurons,neuron)
@@ -72,11 +82,12 @@ addSynapse(network::Network, synapse::Synapse) = push!(network.synapses,synapse)
 
 flush!(network::Network) = for n in network.neurons  n.output = 0. end
 
-#     def __repr__(self):
-#         return '%d nodes and %d synapses' % (len(self.__neurons), len(self.__synapses))
+function Base.show(io::IO, net::Network)
+    @printf(io,"%s %d nodes and %d synapses\n",net.nntype, length(net.neurons), length(net.synapses))
+end
 
 
-function activate(::FeedForward, network::Network, inputs::Vector)
+function activate(::FeedForward, nn::Network, inputs::Vector)
 
     #=  Serial (asynchronous) network activation method. Mostly
     used  in classification tasks (supervised learning) in
@@ -85,51 +96,51 @@ function activate(::FeedForward, network::Network, inputs::Vector)
     you're defining your own feedforward topology, make sure
     you got them in the right order of activation. =#
 
-    @assert length(inputs) == n.numInputs
+    @assert length(inputs) == nn.numInputs
 
-    for i  = 1:length(numInputs)
-        network.neuron[i].output = inputs[i] # iterates over inputs
+    for i  = 1:nn.numInputs
+        nn.neurons[i].output = inputs[i] # iterates over inputs
     end
 
     # activate all neurons in the network (except for the inputs)
     netOutput = zeros(0)
-    for n in network.neuron[n.numInputs+1:end]
-        n.output = n.activate()
-        if n._type == :OUTPUT  push!(netOutput,n._output) end
+    for n in nn.neurons[nn.numInputs+1:end]
+        n.output = activate(n)
+        if n.nType == :OUTPUT  push!(netOutput,n.output) end
     end
 
-    return net_output
+    return netOutput
 
 end
 
-function activate(::Recurrent, network::Network, inputs::Vector)
+function activate(::Recurrent, nn::Network, inputs::Vector)
 
     #= Parallel (synchronous) network activation method. Mostly used
     for control and unsupervised learning (i.e., artificial life)
     in recurrent networks. All neurons are updated (activated)
     simultaneously. =#
 
-    @assert length(inputs) == n.numInputs
+    @assert length(inputs) == nn.numInputs
 
     # the current state is like a "photograph" taken at each time step
     # reresenting all neuron's state at that time (think of it as a clock)
     inputCnt = 0
     currentState = zeros(0)
-    for n in network.neuron
-        if n.ntype == :INPUT
+    for n in nn.neurons
+        if n.nType == :INPUT
             inputCnt += 1
             n.output = inputs[inputCnt]
         else
-            push!(currentState,n.activate())
+            push!(currentState,activate(n))
         end
     end
 
     netOutput = zeros(0)
-    for i = numInputs+1:length(network.neuron)
-        n = network.neuron[i]
-        n.output = currentState[i-numInputs]
-        if n.ntype == :OUTPUT
-            push1(netOutput,n.output)
+    for i = nn.numInputs+1:length(nn.neurons)
+        n = nn.neurons[i]
+        n.output = currentState[i-nn.numInputs]
+        if n.nType == :OUTPUT
+            push!(netOutput,n.output)
         end
     end
 
@@ -137,45 +148,75 @@ function activate(::Recurrent, network::Network, inputs::Vector)
 end
 
 
-function createPhenotype(chromo)
-        # Receives a chromosome and returns its phenotype (a neural network)
+function createPhenotype(ch::Chromosome)
+    # Receives a chromosome and returns its phenotype (a neural network)
 
-    neurons = Array{Neuron,1}[]
-    for ng in chromo.nodeGenes
-        push!(neurons, Neuron(ng.nType, ng.id, ng.bias, ng.activation, ng.response))
+    neurons = Neuron[]
+    if ch.node_gene_type == Recurrent()
+
+        for ng in ch.node_genes
+            push!(neurons, Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response))
+        end
+
+    else # FeedForward() type
+
+        # first create inputs
+        neurons = [Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response)
+                        for ng in ch.node_genes[1:ch.inputCnt]]
+
+        # Add hidden nodes in the right order
+        for id in ch.node_order
+            ng = ch.node_genes[id]
+            push!(neurons, Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response))
+        end
+
+        # finally the output
+        for ng in ch.node_genes[ch.inputCnt+1:ch.inputCnt+ch.outputCnt]
+            push!(neurons, Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response))
+        end
+
     end
 
-    synapses = Array{Synapse,1}[]
-    for cg in chromo.connGenes
-        push!(neurons, Synapse(cg.innodeid, cg.outnodeid, cg.weight))
+    @assert length(neurons) == length(ch.node_genes)
+
+    synapses = Synapse[]
+    for (k,cg) in ch.connection_genes
+        if cg.enable push!(synapses, Synapse(ch.node_genes[cg.inId], ch.node_genes[cg.outId], cg.weight)) end
     end
 
-    return Network(neurons, synapses,length(chromo.sensors))
+    return Network(neurons, synapses, ch.inputCnt, ch.node_gene_type)
 
 end
 
-import Base.+, Base.tanh
 
-sigm(x::Real) = 1.0 / (1.0 + exp(-x))
-sigm(x::Real, γ::Real) = 1.0 / (1.0 + exp(-γ*x))
-tanh(x::Real, γ::Real) = (exp(2x*γ)-1) / (exp(2x*γ)+1)
-relu(x::Real) = max(zero(x),x)
+###################################
+#         previous version        #
+###################################
 
-abstract Gene
+# import Base.+, Base.tanh
 
-type GeneConnection <: Gene
-    in::Gene
-    out::Gene
-    f::Function
-    w::Float64
-    expressed::Bool
-    inId::Int64
-    outId::Int64
-    id::Int64
-    function GeneConnection(inNode, inID, outID, id)
-       (gene = new(inNode,inNode,x->x,randn(),true,inID,outID,id);gene.f=()->gene.in.f()*gene.w;gene)
-    end
-end
+# sigm(x::Real) = 1.0 / (1.0 + exp(-x))
+# sigm(x::Real, γ::Real) = 1.0 / (1.0 + exp(-γ*x))
+# tanh(x::Real, γ::Real) = (exp(2x*γ)-1) / (exp(2x*γ)+1)
+# relu(x::Real) = max(zero(x),x)
+
+
+
+# abstract Gene
+
+# type GeneConnection <: Gene
+#     in::Gene
+#     out::Gene
+#     f::Function
+#     w::Float64
+#     expressed::Bool
+#     inId::Int64
+#     outId::Int64
+#     id::Int64
+#     function GeneConnection(inNode, inID, outID, id)
+#        (gene = new(inNode,inNode,x->x,randn(),true,inID,outID,id);gene.f=()->gene.in.f()*gene.w;gene)
+#     end
+# end
 
 # type BiasNode <: Gene
 #     f::Function # always returns 1.0

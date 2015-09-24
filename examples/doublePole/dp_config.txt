@@ -6,7 +6,7 @@ fully_connected     = 1
 max_weight          = 50
 min_weight          = -50
 feedforward         = 0
-nn_activation       = tanh
+nn_activation       = sigm
 hidden_nodes        = 0
 weight_stdev        = 2.0
 
