@@ -16,10 +16,13 @@ type Synapse
     source
     destination
     weight::Float64
-    Synapse(source, destination, weight::Float64) = new(source, destination, weight)
+    function Synapse(source, destination, weight::Float64)
+        s = new(source, destination, weight);
+        addSynapse(destination, s); s
+    end
 end
 
-incoming(s::Synapse) = s.weight * s.source
+incoming(s::Synapse) = s.weight * s.source.output
 
 function Base.show(io::IO, s::Synapse)
     @printf(io,"%d -> %3.5f -> %d\n", s.source.id, s.weight, s.destination.id)
@@ -40,10 +43,11 @@ type Neuron
 end
 
 
+addSynapse(n::Neuron, s::Synapse) = push!(n.synapses,s)   # adds the synapse to the destination neuron
 
 function activate(n::Neuron)
 #         "Activates the neuron"
-#         assert self._type is not 'INPUT'
+        @assert n.nType != :INPUT
         return n.activation(updateActivation!(n) + n.bias)
 end
 
@@ -61,8 +65,9 @@ function currentOutput(n::Neuron)
     return n.output
 end
 
-addSynapse(n::Neuron, s::Synapse) = push!(n.synapses,s)
-
+function Base.show(io::IO, n::Neuron)
+    @printf(io,"%%d %s\n", n.id, n.nType)
+end
 #     def __repr__(self):
 #         return '%d %s' %(self._id, self._type)
 
@@ -152,27 +157,37 @@ function createPhenotype(ch::Chromosome)
     # Receives a chromosome and returns its phenotype (a neural network)
 
     neurons = Neuron[]
+    Idx2Neuron = Dict{Int64,Neuron}()
     if ch.node_gene_type == Recurrent()
 
         for ng in ch.node_genes
-            push!(neurons, Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response))
+            n = Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response)
+            push!(neurons, n)
+            Idx2Neuron[ng.id] = n
         end
 
     else # FeedForward() type
 
         # first create inputs
-        neurons = [Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response)
-                        for ng in ch.node_genes[1:ch.inputCnt]]
+        for ng in ch.node_genes[1:ch.inputCnt]
+            n = Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response)
+            push!(neurons,n)
+            Idx2Neuron[ng.id] = n
+        end
 
         # Add hidden nodes in the right order
         for id in ch.node_order
             ng = ch.node_genes[id]
-            push!(neurons, Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response))
+            n = Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response)
+            push!(neurons, n)
+            Idx2Neuron[ng.id] = n
         end
 
         # finally the output
         for ng in ch.node_genes[ch.inputCnt+1:ch.inputCnt+ch.outputCnt]
-            push!(neurons, Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response))
+            n = Neuron(ng.ntype, ng.id, ng.bias, ng.activation, ng.response)
+            push!(neurons, n)
+            Idx2Neuron[ng.id] = n
         end
 
     end
@@ -181,7 +196,7 @@ function createPhenotype(ch::Chromosome)
 
     synapses = Synapse[]
     for (k,cg) in ch.connection_genes
-        if cg.enable push!(synapses, Synapse(ch.node_genes[cg.inId], ch.node_genes[cg.outId], cg.weight)) end
+        if cg.enable push!(synapses, Synapse(Idx2Neuron[cg.inId], Idx2Neuron[cg.outId], cg.weight)) end
     end
 
     return Network(neurons, synapses, ch.inputCnt, ch.node_gene_type)
