@@ -66,34 +66,20 @@ function speciate(g::Global, p::Population, report::Bool)
         if !found push!(p.species, Species(g, individual)) end
     end
 
-
-    # python technical note:
-    # we need a "working copy" list when removing elements while looping
-    # otherwise we might end up having sync issues
-    toDelete = falses(length(p.species))
+    # eliminate empty species
     keep = map(s->length(s)==0?false:true,p.species)
-
     if report
         for i = 1:length(keep)
             if !keep[i] println("Removing species $(p.species[i].id) for being empty") end
         end
     end
     p.species = p.species[keep]
-#     for s in p.species
-#         # this happens when no chromosomes are compatible with the species
-#         if !keep
-#             if report println("Removing species $(s.id) for being empty") end
-#             # remove empty species
-#             delete!(p.species,s)
-# #             deleteat!(p.species,findfirst(p.species,s))
-#         end
-#     end
     set_compatibility_threshold(g, p)
 
 end
 
 function set_compatibility_threshold(g::Global, p::Population)
-    # ntrols compatibility threshold
+    # controls compatibility threshold
     if length(p.species) > g.cg.species_size
         g.cg.compatibility_threshold += g.cg.compatibility_change
     elseif length(p.species) < g.cg.species_size
@@ -238,74 +224,79 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
 #                          ch.parent1_id, ch.parent2_id, ch.id, size(ch)[1], size(ch)[2]), p.population)
         #-----------------------------------------
 
-
         # Remove stagnated species and its members (except if it has the best chromosome)
-        for s in p.species
-            if s.no_improvement_age > g.cg.max_stagnation
-                if !s.hasBest || s.no_improvement_age > 2 * g.cg.max_stagnation
+        speciesToKeep = trues(length(p.species))
+        deletedSpeciesIds = Int64[]
+        for i in 1:length(p.species)
+            if p.species[i].no_improvement_age > g.cg.max_stagnation
+                if !p.species[i].hasBest || p.species[i].no_improvement_age > 2 * g.cg.max_stagnation
                     if report @printf("\n   Species %2d age %2s (with %2d individuals) is stagnated: removing it",
-                                      s.id, s.age, length(s)) end
-                    # removing species
-                    deleteat!(p.species,findfirst(p.species,s))
-                    # removing all the species' members
-                    #TODO: can be optimized!
-                    for ch in p.population
-                        if ch.species_id == ch.id deleteat!(p.population,findfirst(p.population,ch)) end
-                    end
+                                      p.species[i].id, p.species[i].age, length(p.species[i])) end
+                    speciesToKeep[i] = false
+                    push!(deletedSpeciesIds,p.species[i].id)
                 end
             end
         end
+        p.species = p.species[speciesToKeep] # prune unwanted species
+
+        # remove species' chromosomes from population
+        chromosToKeep = trues(length(p.population))
+        for i in 1:length(p.population)
+            if findfirst(deletedSpeciesIds,p.population[i].species_id) != 0 chromosToKeep[i] = false end
+        end
+        p.population = p.population[chromosToKeep] # prune unwanted chromosomes
 
         # Compute spawn levels for each remaining species
         compute_spawn_levels(g, p)
 
         # Removing species with spawn amount = 0
-        for s in p.species
+        speciesToKeep = trues(length(p.species))
+        deletedSpeciesIds = Int64[]
+        for i in 1:length(p.species)
+
             # This rarely happens
-            if s.spawn_amount == 0
-                if report @printf("\n   Species %2d age %2s removed: produced no offspring",s.id, s.age) end
-                # removing species
-                deleteat!(p.species,findfirst(p.species,s))
-                # removing all the species' members
-                #TODO: can be optimized!
-                for ch in p.population
-                    if ch.species_id == ch.id deleteat!(p.population,findfirst(p.population,ch)) end
-                end
+            if p.species[i].spawn_amount == 0
+                if report @printf("\n   Species %2d age %2s removed: produced no offspring",p.species[i].id, p.species[i].age) end
+                speciesToKeep[i] = false
+                push!(deletedSpeciesIds,p.species[i].id)
             end
         end
+        p.species = p.species[speciesToKeep] # prune unwanted species
+
+        # remove species' chromosomes from population
+        chromosToKeep = trues(length(p.population))
+        for i in 1:length(p.population)
+            if findfirst(deletedSpeciesIds,p.population[i].species_id) != 0 chromosToKeep[i] = false end
+        end
+        p.population = p.population[chromosToKeep] # prune unwanted chromosomes
 
         # Logging speciation stats
         log_species(p)
 
-#         if report
-#             print 'Population\'s average fitness: %3.5f stdev: %3.5f' %(self.__avg_fitness[-1], self.stdeviation())
-#             print 'Best fitness: %2.12s - size: %s - species %s - id %s' \
-#                 %(best.fitness, best.size(), best.species_id, best.id)
-#         end
+        if report
+            @printf("\nPopulation's average fitness: %3.5f stdev: %3.5f", p.avg_fitness[end], stdeviation(p))
+            @printf("\nBest fitness: %2.12s - size: %s - species %s - id %s", best.fitness, size(best), best.species_id, best.id)
 
-#             # print some "debugging" information
-#             print 'Species length: %d totalizing %d individuals' \
-#                     %(len(self.__species), sum([len(s) for s in self.__species]))
-#             print 'Species ID       : %s' % [s.id for s in self.__species]
-#             print 'Each species size: %s' % [len(s) for s in self.__species]
-#             print 'Amount to spawn  : %s' % [s.spawn_amount for s in self.__species]
-#             print 'Species age      : %s' % [s.age for s in self.__species]
-#             print 'Species no improv: %s' % [s.no_improvement_age for s in self.__species] # species no improvement age
+            # print some "debugging" information
+            @printf("\nSpecies length: %d totalizing %d individuals", length(p.species), sum([length(s) for s in p.species]))
+            @printf("\nSpecies ID       : %s",   [s.id for s in p.species])
+            @printf("\nEach species size: %s",   [length(s) for s in p.species])
+            @printf("\nAmount to spawn  : %s",   [s.spawn_amount for s in p.species])
+            @printf("\nSpecies age      : %s",   [s.age for s in p.species])
+            @printf("\nSpecies no improv: %s\n", [s.no_improvement_age for s in p.species]) # species no improvement age
 
-#             #for s in self.__species:
-#             #    print s
+            for s in p.species println(s) end
+        end
 
         # -------------------------- Producing new offspring -------------------------- #
         new_population = Chromosome[] # next generation's population
 
         # Spawning new population
-        for s in p.species
-            new_population = vcat(new_population,reproduce(g, s))
-        end
+        for s in p.species new_population = vcat(new_population,reproduce(g, s)) end
 
-        # ----------------------------#
-        # Controls under or overflow  #
-        # ----------------------------#
+        # ----------------------------------------------#
+        # Controls target population under or overflow  #
+        # ----------------------------------------------#
         fill = p.popsize - length(new_population)
         if fill < 0 # overflow
             if report println("\n   Removing $(abs(fill)) excess individual(s) from the new population") end

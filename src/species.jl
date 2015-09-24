@@ -39,9 +39,9 @@ end
 Base.length(s::Species) = length(s.subpopulation)
 
 function Base.show(io::IO, s::Species)
-    str = @sprintf("   Species %2d   size: %3d   age: %3d   spawn: %3d   ",
+    str = @sprintf("   Species %2d   size: %3d   age: %3d   spawn: %3d  ",
                     s.id, length(s.subpopulation), s.age, s.spawn_amount)
-    str = @sprintf("%6s\n   No improvement: %3d   avg. fitness: %1.8f",
+    str = @sprintf("%1s  No improvement: %3d   avg. fitness: %1.8f",
                     str,s.no_improvement_age, s.last_avg_fitness)
     @printf(io,"%6s", str)
 end

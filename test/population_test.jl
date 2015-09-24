@@ -51,11 +51,8 @@ totalSpawns = sum([s.spawn_amount for s in p.species])
 @test length(p.population)-1 <= totalSpawns <= length(p.population)+1
 
 g = NEAT.Global(config)
-# g.cg.prob_addnode = 0.5
-# g.cg.old_threshold = 10
-# g.cg.pop_size  = 20
+g.cg.prob_addnode = 0.5
 p = NEAT.Population(g)
-p.evaluate = (chs)->map(ch->ch.fitness=rand(), chs)
-@time NEAT.epoch(g, p, 1000, true, false, 15, 0)
-for s in p.species println("$(s.id) size $(NEAT.size(s.representant))") end
-# p.species[1].representant
+p.evaluate = (chs)->map(ch->ch.fitness=rand()+ch.fitness, chs)
+@time NEAT.epoch(g, p, 1, true, false, 15, 0)
+
