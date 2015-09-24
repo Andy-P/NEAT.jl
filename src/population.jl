@@ -72,17 +72,22 @@ function speciate(g::Global, p::Population, report::Bool)
     # otherwise we might end up having sync issues
     toDelete = falses(length(p.species))
     keep = map(s->length(s)==0?false:true,p.species)
-    p.species = p.species[keep]
-    for s in p.species
-        # this happens when no chromosomes are compatible with the species
-        if length(s) == 0
-            if report println("Removing species $(s.id) for being empty") end
-            # remove empty species
-            delete!(p.species,s)
-#             deleteat!(p.species,findfirst(p.species,s))
+
+    if report
+        for i = 1:length(keep)
+            if !keep[i] println("Removing species $(p.species[i].id) for being empty") end
         end
     end
-
+    p.species = p.species[keep]
+#     for s in p.species
+#         # this happens when no chromosomes are compatible with the species
+#         if !keep
+#             if report println("Removing species $(s.id) for being empty") end
+#             # remove empty species
+#             delete!(p.species,s)
+# #             deleteat!(p.species,findfirst(p.species,s))
+#         end
+#     end
     set_compatibility_threshold(g, p)
 
 end
@@ -113,8 +118,8 @@ function compute_spawn_levels(g::Global, p::Population)
     species_stats = zeros(length(p.species))
     for i = 1:length(p.species)
         s = p.species[i]
-#         species_stats[i] = s.age < g.cg.youth_threshold? average_fitness(s) * g.cg.youth_boost:
-#             s.age > g.cg.old_threshold? average_fitness(s) * g.cg.youth_boost : average_fitness(s)
+        species_stats[i] = s.age < g.cg.youth_threshold? average_fitness(s) * g.cg.youth_boost:
+            s.age > g.cg.old_threshold? average_fitness(s) * g.cg.youth_boost : average_fitness(s)
         if s.age < g.cg.youth_threshold
             species_stats[i] = average_fitness(s) * g.cg.youth_boost
         elseif s.age > g.cg.old_threshold
@@ -133,7 +138,7 @@ function compute_spawn_levels(g::Global, p::Population)
      # 3. Compute spawn
     for i= 1:length(p.species)
         s = p.species[i]
-        s.spawn_amount = int(round((species_stats[i]*p.popsize/total_average)))
+        s.spawn_amount = int(round((species_stats[i] * p.popsize / total_average)))
     end
 end
 
@@ -229,8 +234,8 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
 
         #-----------------------------------------
         # Prints chromosome's parents id:  {dad_id, mon_id} -> child_id
-        map(ch-> @printf("{%3d; %3d} -> %3d   Nodes %3d   Connections %3d\n",
-                         ch.parent1_id, ch.parent2_id, ch.id, size(ch)[1], size(ch)[2]), p.population)
+#         map(ch-> @printf("{%3d; %3d} -> %3d   Nodes %3d   Connections %3d\n",
+#                          ch.parent1_id, ch.parent2_id, ch.id, size(ch)[1], size(ch)[2]), p.population)
         #-----------------------------------------
 
 
