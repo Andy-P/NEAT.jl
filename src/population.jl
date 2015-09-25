@@ -17,14 +17,14 @@ type Population
             resume_checkpoint(checkpoint)
         else
             population = Chromosome[]
-            popsize = g.cg.pop_size # total population size
+            popsize = g.cf.pop_size # total population size
             for i in 1:popsize
 
-                ch = g.cg.fully_connected? create_fully_connected(g) : create_minimally_connected(g)
-                if g.cg.hidden_nodes > 0
-                    ch = ch = g.cg.fully_connected? ch: create_unconnected(g)
-                    nType = g.cg.feedforward? FeedForward():Recurrent()
-                    add_hidden_nodes!(g, ch, g.cg.hidden_nodes,nType)
+                ch = g.cf.fully_connected? create_fully_connected(g) : create_minimally_connected(g)
+                if g.cf.hidden_nodes > 0
+                    ch = ch = g.cf.fully_connected? ch: create_unconnected(g)
+                    nType = g.cf.feedforward? FeedForward():Recurrent()
+                    add_hidden_nodes!(g, ch, g.cf.hidden_nodes,nType)
                 end
                 push!(population, ch)
             end
@@ -56,7 +56,7 @@ function speciate(g::Global, p::Population, report::Bool)
     for individual in p.population
         found = false
         for s in p.species
-            if distance(g, individual, s.representant) < g.cg.compatibility_threshold
+            if distance(individual, s.representant, g.cf) < g.cf.compatibility_threshold
                 add(s, individual)
                 found = true
                 break
@@ -80,11 +80,11 @@ end
 
 function set_compatibility_threshold(g::Global, p::Population)
     # controls compatibility threshold
-    if length(p.species) > g.cg.species_size
-        g.cg.compatibility_threshold += g.cg.compatibility_change
-    elseif length(p.species) < g.cg.species_size
-        if g.cg.compatibility_threshold > g.cg.compatibility_change
-            g.cg.compatibility_threshold -= g.cg.compatibility_change
+    if length(p.species) > g.cf.species_size
+        g.cf.compatibility_threshold += g.cf.compatibility_change
+    elseif length(p.species) < g.cf.species_size
+        if g.cf.compatibility_threshold > g.cf.compatibility_change
+            g.cf.compatibility_threshold -= g.cf.compatibility_change
         else
             println("Compatibility threshold cannot be changed (minimum value has been reached)")
         end
@@ -104,12 +104,12 @@ function compute_spawn_levels(g::Global, p::Population)
     species_stats = zeros(length(p.species))
     for i = 1:length(p.species)
         s = p.species[i]
-        species_stats[i] = s.age < g.cg.youth_threshold? average_fitness(s) * g.cg.youth_boost:
-            s.age > g.cg.old_threshold? average_fitness(s) * g.cg.youth_boost : average_fitness(s)
-        if s.age < g.cg.youth_threshold
-            species_stats[i] = average_fitness(s) * g.cg.youth_boost
-        elseif s.age > g.cg.old_threshold
-           species_stats[i] = average_fitness(s) * g.cg.old_penalty
+        species_stats[i] = s.age < g.cf.youth_threshold? average_fitness(s) * g.cf.youth_boost:
+            s.age > g.cf.old_threshold? average_fitness(s) * g.cf.youth_boost : average_fitness(s)
+        if s.age < g.cf.youth_threshold
+            species_stats[i] = average_fitness(s) * g.cf.youth_boost
+        elseif s.age > g.cf.old_threshold
+           species_stats[i] = average_fitness(s) * g.cf.old_penalty
         else
             species_stats[i] = average_fitness(s)
         end
@@ -214,7 +214,7 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
 #               end
 
         # Stops the simulation
-        if best.fitness > g.cg.max_fitness_threshold
+        if best.fitness > g.cf.max_fitness_threshold
             @printf("\nBest individual found in epoch %s - complexity: %s", p.generation, size(best))
         end
 
@@ -228,8 +228,8 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
         speciesToKeep = trues(length(p.species))
         deletedSpeciesIds = Int64[]
         for i in 1:length(p.species)
-            if p.species[i].no_improvement_age > g.cg.max_stagnation
-                if !p.species[i].hasBest || p.species[i].no_improvement_age > 2 * g.cg.max_stagnation
+            if p.species[i].no_improvement_age > g.cf.max_stagnation
+                if !p.species[i].hasBest || p.species[i].no_improvement_age > 2 * g.cf.max_stagnation
                     if report @printf("\n   Species %2d age %2s (with %2d individuals) is stagnated: removing it",
                                       p.species[i].id, p.species[i].age, length(p.species[i])) end
                     speciesToKeep[i] = false

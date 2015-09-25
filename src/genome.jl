@@ -11,6 +11,7 @@ type NodeGene <: Node
     timeConstant::Float64
     function NodeGene(id::Int64, nodetype::Symbol, bias::Float64=0., response::Float64=1., # 4.924273,
                       activation::Symbol=:sigm, timeConstant::Float64=1.0)
+        @assert  activation in [:none, :sigm, :tanh, :relu]
         new(id, nodetype, bias, response, activation, timeConstant)
     end
 end
@@ -31,18 +32,18 @@ function get_child(ng::NodeGene, other::NodeGene)
     return ng
 end
 
-function mutate_bias!(ng::NodeGene, cg::Config)
-    ng.bias += randn() * cg.bias_mutation_power
-    if (ng.bias > cg.max_weight)
-        ng.bias = cg.max_weight
-    elseif (ng.bias < cg.min_weight)
-        ng.bias = cg.min_weight
+function mutate_bias!(ng::NodeGene, cf::Config)
+    ng.bias += randn() * cf.bias_mutation_power
+    if (ng.bias > cf.max_weight)
+        ng.bias = cf.max_weight
+    elseif (ng.bias < cf.min_weight)
+        ng.bias = cf.min_weight
     end
 end
 
-function mutate_response!(ng::NodeGene, cg::Config)
+function mutate_response!(ng::NodeGene, cf::Config)
     #  Mutates the neuron's average firing response.
-    ng.response += randn() * cg.bias_mutation_power
+    ng.response += randn() * cf.bias_mutation_power
 end
 
 function mutate_time_constant(ng::NodeGene, cf::Config)
@@ -55,9 +56,9 @@ function mutate_time_constant(ng::NodeGene, cf::Config)
     end
 end
 
-function mutate!(ng::NodeGene, cg::Config)
-    if rand() < cg.prob_mutatebias mutate_bias!(ng, cg) end
-    if rand() < cg.prob_mutatebias mutate_response!(ng, cg) end
+function mutate!(ng::NodeGene, cf::Config)
+    if rand() < cf.prob_mutatebias mutate_bias!(ng, cf) end
+    if rand() < cf.prob_mutatebias mutate_response!(ng, cf) end
 #     if rand() < 0.1 ng.mutate_time_constant() end
 end
 

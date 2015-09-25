@@ -91,14 +91,14 @@ function reproduce(g::Global,s::Species)
 
     sort!(s.subpopulation, by= ch-> ch.fitness, rev=true)
 
-    if g.cg.elitism
+    if g.cf.elitism
         # TODO: Wouldn't it be better if we set elitism=2,3,4...
         # depending on the size of each species?
         push!(offspring, ch.subpopulation[1])
         s.spawn_amount -= 1
     end
 
-    survivors = ifloor(length(s) * g.cg.survival_threshold) # keep a % of the best individuals
+    survivors = ifloor(length(s) * g.cf.survival_threshold) # keep a % of the best individuals
 #     println("survivors = $survivors $(length(s))")
     s.subpopulation = survivors > 0? s.subpopulation[1:survivors]: [s.subpopulation[1]]
 

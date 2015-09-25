@@ -7,6 +7,8 @@ type Config
     fully_connected::Bool
     max_weight::Float64
     min_weight::Float64
+    max_weight_tau::Float64
+    min_weight_tau::Float64
     feedforward::Bool
     nn_activation::Symbol
     weight_stdev::Float64
@@ -49,6 +51,8 @@ type Config
             bool(int(params["fully_connected"])),
             float(params["max_weight"]),
             float(params["min_weight"]),
+            float(params["max_weight_tau"]),
+            float(params["min_weight_tau"]),
             bool(int(params["feedforward"])),
             symbol(params["nn_activation"]),
             float(params["weight_stdev"]),

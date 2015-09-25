@@ -4,14 +4,6 @@ sigm(x::Float64, γ::Float64=1.) = 1.0/(1.0 + exp(-x*γ))
 tanh(x::Real, γ::Real) = (exp(2x*γ)-1) / (exp(2x*γ)+1)
 relu(x::Real) = max(zero(eltype(x)),x)
 
-# type Synapse
-#     source::Neuron
-#     destination::Neuron
-#     weight::Float64
-#     Synapse(source::Neuron, destination::Neuron, weight::Float64) = new(source, destination, weight)
-# end
-
-# incoming(s::Synapse) = s.weight * s.source
 type Synapse
     source
     destination
@@ -37,11 +29,10 @@ type Neuron
     response::Float64   # default = 4.924273 (Stanley, p. 146)
     output::Float64     # for recurrent networks all neurons must have an "initial state"
     function Neuron(neurontype::Symbol, id::Int64, bias::Float64=0., activation::Symbol=:sigm, γ::Float64=1.)
-        f = activation ==:sigm?  x->sigm(x,γ):activation ==:tanh? x->tanh(x,γ):x->relu(x)
-        new(id,[],bias, neurontype, f, γ, 0.)
+        f = activation == :sigm?  x->sigm(x,γ):activation ==:tanh? x->tanh(x,γ):activation ==:relu? x->relu(x): x->x
+        new(id,[], bias, neurontype, f, γ, 0.)
     end
 end
-
 
 addSynapse(n::Neuron, s::Synapse) = push!(n.synapses,s)   # adds the synapse to the destination neuron
 
@@ -66,10 +57,8 @@ function currentOutput(n::Neuron)
 end
 
 function Base.show(io::IO, n::Neuron)
-    @printf(io,"%%d %s\n", n.id, n.nType)
+    @printf(io,"%d %s\n", n.id, n.nType)
 end
-#     def __repr__(self):
-#         return '%d %s' %(self._id, self._type)
 
 type Network
     neurons::Vector{Neuron}

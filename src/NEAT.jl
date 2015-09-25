@@ -11,9 +11,9 @@ type Global
     nodeCnt::Int64
     innov_number::Int64
     innovations::Dict{(Int64,Int64),Int64}
-    cg::Config
-    function Global(cg::Config)
-        new(0,0,0,0,Dict{(Int64,Int64),Int64}(),cg) # global dictionary
+    cf::Config
+    function Global(cf::Config)
+        new(0,0,0,0,Dict{(Int64,Int64),Int64}(),cf) # global dictionary
     end
 end
 

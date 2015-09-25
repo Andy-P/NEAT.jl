@@ -19,7 +19,7 @@ type Chromosome
     function Chromosome(g::Global, parent1_id::Int64, parent2_id::Int64, node_gene_type::ChromoType, conn_gene_type::Symbol)
 
         new(incChromeId!(g),
-            g.cg.input_nodes, g.cg.output_nodes,
+            g.cf.input_nodes, g.cf.output_nodes,
 
             # the type of NodeGene and ConnectionGene the chromosome carries
             node_gene_type, conn_gene_type,
@@ -44,13 +44,13 @@ end
 
 function mutate(ch::Chromosome, g::Global)
     # Mutates the chromosome
-    if rand() < g.cg.prob_addnode
+    if rand() < g.cf.prob_addnode
         mutate_add_node!(ch, g, ch.node_gene_type)
-    elseif rand() < g.cg.prob_addconn
+    elseif rand() < g.cf.prob_addconn
         mutate_add_connection!(ch, g, ch.node_gene_type)
     else
-        map(cg -> mutate!(cg[2], g.cg), ch.connection_genes) # mutate weights
-        map(ng -> mutate!(ng, g.cg), ch.node_genes[ch.inputCnt+1:end]) # mutate bias, response, and etc...
+        map(cg -> mutate!(cg[2], g.cf), ch.connection_genes) # mutate weights
+        map(ng -> mutate!(ng, g.cf), ch.node_genes[ch.inputCnt+1:end]) # mutate bias, response, and etc...
     end
     return ch
 end
@@ -114,7 +114,7 @@ function mutate_add_node!(ch::Chromosome, g::Global,::Recurrent)
     toSpilt = rand(1:length(ks))
     conn_to_split = ch.connection_genes[ks[toSpilt]]
 
-    ng = NodeGene(length(ch.node_genes)+1,:HIDDEN, 0., 1., g.cg.nn_activation, 1.0)
+    ng = NodeGene(length(ch.node_genes)+1,:HIDDEN, 0., 1., g.cf.nn_activation, 1.0)
 #     println("To Split: $toSpilt \n   $conn_to_split\n   $ng")
     push!(ch.node_genes, ng)
     new_conn1, new_conn2 = split(g, conn_to_split, ng.id)
@@ -138,7 +138,7 @@ function mutate_add_connection!(ch::Chromosome, g::Global, ::Recurrent)
             for out_node in ch.node_genes[ch.inputCnt+1:end]
                 if !haskey(ch.connection_genes,(in_node.id, out_node.id)) # if fDree connection
                     if count == n # Connection to create
-                        weight = randn() * g.cg.weight_stdev
+                        weight = randn() * g.cf.weight_stdev
                         cg = ConnectionGene(g, in_node.id, out_node.id, weight, true)
                         ch.connection_genes[cg.key] = cg
 #                         println(cg)
@@ -195,7 +195,7 @@ function mutate_add_connection!(ch::Chromosome, g::Global,::FeedForward)
                 if !haskey(ch.connection_genes,(in_node.id, out_node.id)) &&　is_connection_feedforward(ch, in_node, out_node)
                     # Free connection
                     if count == n # Connection to create
-                        weight = randn() * g.cg.weight_stdev
+                        weight = randn() * g.cf.weight_stdev
                         cg = ConnectionGene(g, in_node.id, out_node.id, weight, true)
                         ch.connection_genes[cg.key] = cg
                         return
@@ -217,7 +217,7 @@ end
 #----------  End of Mutation  ----------
 
 # compatibility function
-function distance(g::Global, self::Chromosome, other::Chromosome)
+function distance(self::Chromosome, other::Chromosome, cf::Config)
 
     # Returns the distance between this chromosome and the other.
     chromo1, chromo2 = length(self.connection_genes) > length(other.connection_genes)? (self,other):(other,self)
@@ -245,9 +245,9 @@ function distance(g::Global, self::Chromosome, other::Chromosome)
     end
 
     disjoint += length(chromo2.connection_genes) - matching
-    d = g.cg.excess_coeficient * excess + g.cg.disjoint_coeficient * disjoint
+    d = cf.excess_coeficient * excess + cf.disjoint_coeficient * disjoint
 
-    return matching > 0? d + g.cg.weight_coeficient * weight_diff / matching : d
+    return matching > 0? d + cf.weight_coeficient * weight_diff / matching : d
 end
 
 function size(ch::Chromosome)
@@ -288,18 +288,18 @@ function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64, ::Recur
 
     id = length(ch.node_genes)+1
     for i in 1:num_hidden
-        node_gene = NodeGene(id, :HIDDEN, 0., 1., g.cg.nn_activation)
+        node_gene = NodeGene(id, :HIDDEN, 0., 1., g.cf.nn_activation)
         push!(ch.node_genes, node_gene)
         id += 1
         # Connect all nodes to it
         for pre in ch.node_genes
-            weight = randn() * g.cg.weight_stdev
+            weight = randn() * g.cf.weight_stdev
             cg = ConnectionGene(g, pre.id, node_gene.id, weight)
             ch.connection_genes[cg.key] = cg
         end
         # Connect it to all nodes except input nodes
         for post in ch.node_genes[ch.inputCnt+1:end]
-            weight = randn() * g.cg.weight_stdev
+            weight = randn() * g.cf.weight_stdev
             cg = ConnectionGene(g, node_gene.id, post.id, weight)
             ch.connection_genes[cg.key] = cg
         end
@@ -309,17 +309,17 @@ end
 function create_unconnected(g::Global)
 
     # Creates a chromosome for an unconnected feedforward network with no hidden nodes.
-    c = Chromosome(g, 0, 0, (g.cg.feedforward? FeedForward():Recurrent()), :ConnectionGene)
+    c = Chromosome(g, 0, 0, (g.cf.feedforward? FeedForward():Recurrent()), :ConnectionGene)
 
     id = 1
     # Create node genes
     for i = 1:c.inputCnt
-        push!(c.node_genes, NodeGene(id, :INPUT))
+        push!(c.node_genes, NodeGene(id, :INPUT, 0., 1., :none))
         id += 1
     end
 #         #c._input_nodes += num_input
     for i in 1:c.outputCnt
-        push!(c.node_genes, NodeGene(id, :OUTPUT))
+        push!(c.node_genes, NodeGene(id, :OUTPUT, 0., 1., g.cf.nn_activation))
         id += 1
     end
     @assert id == length(c.node_genes) + 1
@@ -334,7 +334,7 @@ function create_minimally_connected(g::Global)
     for node_gene in ch.node_genes[end-ch.outputCnt+1:end] # each output node
         # Connect it to a random input node
         input_node = ch.node_genes[rand(1:ch.inputCnt)]
-        weight = randn() * g.cg.weight_stdev
+        weight = randn() * g.cf.weight_stdev
         cg = ConnectionGene(g, input_node.id, node_gene.id, weight)
         ch.connection_genes[cg.key] = cg
     end
@@ -350,7 +350,7 @@ function create_fully_connected(g::Global)
         for input_node in ch.node_genes[1:ch.inputCnt]
             # TODO: review the initial weights distribution
             # weight = random.uniform(-1, 1)*Config.random_range
-            weight = randn() * g.cg.weight_stdev
+            weight = randn() * g.cf.weight_stdev
             cg = ConnectionGene(g, input_node.id, node_gene.id, weight)
             ch.connection_genes[cg.key] = cg
         end
@@ -361,14 +361,14 @@ end
 function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64, ::FeedForward)
     id = length(ch.node_genes)+1
     for i in 1:num_hidden
-        node_gene = NodeGene(id, :HIDDEN, 0., 1., g.cg.nn_activation)
+        node_gene = NodeGene(id, :HIDDEN, 0., 1., g.cf.nn_activation)
         push!(ch.node_genes, node_gene)
         push!(ch.node_order,node_gene.id)
         id += 1
 
         # Connect all input nodes to it
         for pre in ch.node_genes[1:ch.inputCnt]
-            weight = randn() * g.cg.weight_stdev
+            weight = randn() * g.cf.weight_stdev
             cg = ConnectionGene(g, pre.id, node_gene.id, weight, true)
             ch.connection_genes[cg.key] = cg
             @assert is_connection_feedforward(ch, pre, node_gene) == true
@@ -378,7 +378,7 @@ function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64, ::FeedF
         # Comment: Makes for one wierd network! Omit hidden->hidden??
 #         for pre_id in ch.node_order[1:end-1]
 #             @assert pre_id != node_gene.id
-#             weight = randn() * g.cg.weight_stdev
+#             weight = randn() * g.cf.weight_stdev
 #             cg = ConnectionGene(g, pre_id, node_gene.id, weight, true)
 #             ch.connection_genes[cg.key] = cg
 #         end
@@ -386,7 +386,7 @@ function add_hidden_nodes!(g::Global, ch::Chromosome, num_hidden::Int64, ::FeedF
         # Connect it to all output nodes
         for post in ch.node_genes[ch.inputCnt+1:(ch.inputCnt + ch.outputCnt)]
             @assert post.ntype == :OUTPUT
-            weight = randn() * g.cg.weight_stdev
+            weight = randn() * g.cf.weight_stdev
             cg = ConnectionGene(g, node_gene.id, post.id, weight, true)
             ch.connection_genes[cg.key] = cg
 #             assert self.__is_connection_feedforward(node_gene, post)
