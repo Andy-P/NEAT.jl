@@ -90,7 +90,6 @@ end
 
 function loadConfig(file::String)
     str = readall(file)
-#     println(file,str)
 
     str = replace(str, r"\r(\n)?", '\n')
     ls = split(str, "\n")
@@ -99,6 +98,7 @@ function loadConfig(file::String)
     lsMap = map(x->split(x,'='),ls)
     params = Dict{String,String}()
     for i = 1:length(lsMap)
+#         println((i,lsMap[i][1],lsMap[i][2]))
         params[rstrip(lsMap[i][1])] = lstrip(lsMap[i][2])
     end
 

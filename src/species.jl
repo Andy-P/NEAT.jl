@@ -94,7 +94,7 @@ function reproduce(g::Global,s::Species)
     if g.cf.elitism
         # TODO: Wouldn't it be better if we set elitism=2,3,4...
         # depending on the size of each species?
-        push!(offspring, ch.subpopulation[1])
+        push!(offspring, s.subpopulation[1])
         s.spawn_amount -= 1
     end
 

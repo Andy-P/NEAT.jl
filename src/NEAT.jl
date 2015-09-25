@@ -4,7 +4,7 @@ import Base.split
 
 include("config.jl")
 
-# fills roll of class variables
+# track count of various global variables & holds refernce to the config
 type Global
     speciesCnt::Int64
     chromosomeCnt::Int64
@@ -24,16 +24,5 @@ include("population.jl")
 include("../networks/nn.jl")
 
 # export Input, Output, Hidden
-
-
-# TO DOs:
-
-# 1. Mutation
-# 2. Crossover
-# 3. Feed forward
-# 4. Fitness evaluation
-# 5. Speciation
-# 6. Initialization
-
 
 end # module

@@ -54,4 +54,4 @@ g = NEAT.Global(config)
 g.cf.prob_addnode = 0.5
 p = NEAT.Population(g)
 p.evaluate = (chs)->map(ch->ch.fitness=max(0,randn()*0.3+ch.fitness*0.7), chs)
-@time NEAT.epoch(g, p, 1, true)
+@time NEAT.epoch(g, p, 1, false)

@@ -180,7 +180,7 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
     =#
     t0 = time() # for saving checkpoints
 
-    for gen in 1:n
+    for gen in 0:n
         p.generation += 1
 
         if report println(" ****** Running generation $(p.generation) ******") end
@@ -212,11 +212,6 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
 #             pickle.dump(best, file)
 #             file.close()
 #               end
-
-        # Stops the simulation
-        if best.fitness > g.cf.max_fitness_threshold
-            @printf("\nBest individual found in epoch %s - complexity: %s", p.generation, size(best))
-        end
 
         #-----------------------------------------
         # Prints chromosome's parents id:  {dad_id, mon_id} -> child_id
@@ -286,6 +281,12 @@ function epoch(g::Global, p::Population, n::Int64, report::Bool=true, save_best:
             @printf("\nSpecies no improv: %s\n", [s.no_improvement_age for s in p.species]) # species no improvement age
 
             for s in p.species println(s) end
+        end
+
+        # Stops the simulation
+        if best.fitness > g.cf.max_fitness_threshold
+            @printf("Best individual found in epoch %s - complexity: %s\n", p.generation, size(best))
+            break
         end
 
         # -------------------------- Producing new offspring -------------------------- #

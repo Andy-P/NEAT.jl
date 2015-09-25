@@ -1,6 +1,3 @@
-reload("NEAT")
-include("config_tests.jl")
-
 # Recurrent type
 g = NEAT.Global(config)
 g.cf.feedforward = false
